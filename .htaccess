@@ -1,0 +1,28 @@
+# セキュリティ設定
+php_value session.cookie_httponly 1
+php_value session.cookie_secure 0
+php_value session.use_strict_mode 1
+
+# エラー表示を無効化(本番環境)
+# php_flag display_errors off
+
+# デフォルトファイル
+DirectoryIndex index.php
+
+# .htaccessファイルへのアクセスを拒否
+<Files .htaccess>
+    Order allow,deny
+    Deny from all
+</Files>
+
+# 設定ファイルへのアクセスを拒否
+<FilesMatch "^(config|db)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# SQLファイルへのアクセスを拒否
+<FilesMatch "\.sql$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

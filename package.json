@@ -1,0 +1,11 @@
+{
+  "name": "shift-management-system",
+  "version": "1.0.0",
+  "description": "アルバイトシフト管理システム",
+  "scripts": {
+    "start": "php -S 0.0.0.0:${PORT:-8000}"
+  },
+  "keywords": ["shift", "management", "php"],
+  "author": "",
+  "license": "MIT"
+}
