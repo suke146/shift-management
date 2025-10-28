@@ -18,11 +18,15 @@ COPY . .
 # データディレクトリを作成
 RUN mkdir -p /var/www/html/data && chmod 777 /var/www/html/data
 
+# スタートアップスクリプトをコピーして実行権限を付与
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # ポートを環境変数から取得（Railwayが自動設定）
 ENV PORT=8000
 
 # ヘルスチェック用のファイル
 RUN echo "<?php echo 'OK';" > /var/www/html/health.php
 
-# PHPビルトインサーバーを起動（ルーターファイルなし）
-CMD php -S 0.0.0.0:${PORT}
+# スタートアップスクリプトを実行（自動DB初期化 + サーバー起動）
+CMD ["/start.sh"]
