@@ -1,12 +1,47 @@
-let currentWeek = getMonday(new Date());
-let currentManageWeek = getMonday(new Date());
+let currentPeriod = getPeriodStart(new Date());
+let currentManagePeriod = getPeriodStart(new Date());
 
-// 月曜日を取得
-function getMonday(date) {
+// 半月期間の開始日を取得（1日または16日）
+function getPeriodStart(date) {
     const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
+    const day = d.getDate();
+    
+    if (day >= 16) {
+        d.setDate(16);
+    } else {
+        d.setDate(1);
+    }
+    
+    return d;
+}
+
+// 半月期間の終了日を取得
+function getPeriodEnd(periodStart) {
+    const d = new Date(periodStart);
+    const day = d.getDate();
+    
+    if (day === 1) {
+        d.setDate(15);
+    } else {
+        // 月末を取得
+        d.setMonth(d.getMonth() + 1);
+        d.setDate(0);
+    }
+    
+    return d;
+}
+
+// 半月期間の日付配列を取得
+function getPeriodDates(periodStart) {
+    const dates = [];
+    const start = new Date(periodStart);
+    const end = getPeriodEnd(periodStart);
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(new Date(d));
+    }
+    
+    return dates;
 }
 
 // 日付をフォーマット
@@ -18,46 +53,81 @@ function formatDate(date) {
 }
 
 // 曜日名
-const dayNames = ['月', '火', '水', '木', '金', '土', '日'];
+const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+// 15分刻みの時刻オプションを生成
+function generateTimeOptions() {
+    const options = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 15) {
+            const hour = String(h).padStart(2, '0');
+            const min = String(m).padStart(2, '0');
+            options.push(`${hour}:${min}`);
+        }
+    }
+    return options;
+}
+
+// 時刻選択のセレクトボックスを生成
+function createTimeSelect(defaultValue = '09:00') {
+    const options = generateTimeOptions();
+    let html = '<select class="time-select">';
+    options.forEach(time => {
+        const selected = time === defaultValue ? 'selected' : '';
+        html += `<option value="${time}" ${selected}>${time}</option>`;
+    });
+    html += '</select>';
+    return html;
+}
 
 // シフト提出の初期化
 function initShiftSubmit() {
-    const weekInput = document.getElementById('shift-week');
+    const periodInput = document.getElementById('shift-week');
     const container = document.getElementById('shift-days-container');
     
-    // 今週をデフォルトに設定
-    const monday = getMonday(new Date());
-    weekInput.value = formatDate(monday).substring(0, 8);
+    // 現在の半月期間をデフォルトに設定
+    const periodStart = getPeriodStart(new Date());
+    periodInput.value = formatDate(periodStart);
     
-    // 曜日ごとの入力欄を生成
-    generateShiftDays(container, monday);
+    // 日付ごとの入力欄を生成
+    generateShiftDays(container, periodStart);
+    
+    // 期間変更時のイベント
+    periodInput.addEventListener('change', function() {
+        const newPeriod = getPeriodStart(new Date(this.value));
+        generateShiftDays(container, newPeriod);
+    });
 }
 
-// シフト日の入力欄を生成
-function generateShiftDays(container, startDate) {
+// シフト日の入力欄を生成（半月分）
+function generateShiftDays(container, periodStart) {
     container.innerHTML = '';
+    const dates = getPeriodDates(periodStart);
     
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + i);
+    dates.forEach((date, index) => {
+        const dayOfWeek = date.getDay();
         
         const dayDiv = document.createElement('div');
         dayDiv.className = 'shift-day';
         dayDiv.innerHTML = `
             <div class="shift-day-header">
                 <label>
-                    <input type="checkbox" class="availability-check" data-day="${i}" checked>
-                    ${dayNames[i]}曜日 (${formatDate(date)})
+                    <input type="checkbox" class="availability-check" data-index="${index}" checked>
+                    ${formatDate(date)} (${dayNames[dayOfWeek]})
                 </label>
             </div>
-            <div class="shift-day-times" id="times-${i}">
+            <div class="shift-day-times" id="times-${index}">
                 <div class="form-group">
                     <label>開始時刻</label>
-                    <input type="time" class="start-time" data-day="${i}" value="09:00">
+                    <div class="time-select-container" data-index="${index}" data-type="start">
+                        ${createTimeSelect('09:00')}
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>終了時刻</label>
-                    <input type="time" class="end-time" data-day="${i}" value="18:00">
+                    <div class="time-select-container" data-index="${index}" data-type="end">
+                        ${createTimeSelect('18:00')}
+                    </div>
                 </div>
             </div>
         `;
@@ -71,33 +141,34 @@ function generateShiftDays(container, startDate) {
         checkbox.addEventListener('change', function() {
             timesDiv.style.display = this.checked ? 'grid' : 'none';
         });
-    }
+    });
 }
 
 // シフト提出
 async function submitShift(event) {
     event.preventDefault();
     
-    const weekInput = document.getElementById('shift-week').value;
+    const periodInput = document.getElementById('shift-week').value;
     const messageDiv = document.getElementById('submit-message');
     
-    // 週の月曜日を計算
-    const weekStart = formatDate(getMonday(new Date(weekInput + '-01')));
+    // 半月期間の開始日
+    const periodStart = formatDate(getPeriodStart(new Date(periodInput)));
+    const dates = getPeriodDates(new Date(periodStart));
     
     // シフトデータを収集
     const shifts = [];
-    for (let i = 0; i < 7; i++) {
-        const checkbox = document.querySelector(`.availability-check[data-day="${i}"]`);
-        const startTime = document.querySelector(`.start-time[data-day="${i}"]`);
-        const endTime = document.querySelector(`.end-time[data-day="${i}"]`);
+    dates.forEach((date, index) => {
+        const checkbox = document.querySelector(`.availability-check[data-index="${index}"]`);
+        const startSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="start"] select`);
+        const endSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="end"] select`);
         
         shifts.push({
-            day_of_week: i,
+            shift_date: formatDate(date),
             is_available: checkbox.checked,
-            start_time: checkbox.checked ? startTime.value : null,
-            end_time: checkbox.checked ? endTime.value : null
+            start_time: checkbox.checked ? startSelect.value : null,
+            end_time: checkbox.checked ? endSelect.value : null
         });
-    }
+    });
     
     try {
         const response = await fetch('api/shift.php?action=submit', {
@@ -106,7 +177,7 @@ async function submitShift(event) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                week_start: weekStart,
+                period_start: periodStart,
                 shifts: shifts
             })
         });
@@ -125,37 +196,55 @@ async function submitShift(event) {
 
 // シフト閲覧の初期化
 function initShiftView() {
-    updateWeekDisplay();
+    updatePeriodDisplay();
     loadFinalShifts();
 }
 
-// 週の表示を更新
-function updateWeekDisplay() {
+// 半月期間の表示を更新
+function updatePeriodDisplay() {
     const display = document.getElementById('current-week-display');
-    const endDate = new Date(currentWeek);
-    endDate.setDate(endDate.getDate() + 6);
+    const endDate = getPeriodEnd(currentPeriod);
     
-    display.textContent = `${formatDate(currentWeek)} 〜 ${formatDate(endDate)}`;
+    display.textContent = `${formatDate(currentPeriod)} 〜 ${formatDate(endDate)}`;
 }
 
-// 週を変更
+// 期間を変更（半月単位）
 function changeWeek(offset) {
-    currentWeek.setDate(currentWeek.getDate() + (offset * 7));
-    updateWeekDisplay();
+    if (offset > 0) {
+        // 次の半月
+        const day = currentPeriod.getDate();
+        if (day === 1) {
+            currentPeriod.setDate(16);
+        } else {
+            currentPeriod.setMonth(currentPeriod.getMonth() + 1);
+            currentPeriod.setDate(1);
+        }
+    } else {
+        // 前の半月
+        const day = currentPeriod.getDate();
+        if (day === 16) {
+            currentPeriod.setDate(1);
+        } else {
+            currentPeriod.setMonth(currentPeriod.getMonth() - 1);
+            currentPeriod.setDate(16);
+        }
+    }
+    
+    updatePeriodDisplay();
     loadFinalShifts();
 }
 
 // 確定シフトを読み込み
 async function loadFinalShifts() {
     const container = document.getElementById('shift-table-container');
-    const weekStart = formatDate(currentWeek);
+    const periodStart = formatDate(currentPeriod);
     
     try {
-        const response = await fetch(`api/shift.php?action=get_final_shifts&week_start=${weekStart}`);
+        const response = await fetch(`api/shift.php?action=get_final_shifts&period_start=${periodStart}`);
         const data = await response.json();
         
         if (data.success) {
-            displayShiftTable(container, data.shifts, weekStart);
+            displayShiftTable(container, data.shifts, new Date(periodStart));
         } else {
             container.innerHTML = '<p>シフトの読み込みに失敗しました</p>';
         }
@@ -165,11 +254,13 @@ async function loadFinalShifts() {
 }
 
 // シフト表を表示
-function displayShiftTable(container, shifts, weekStart) {
+function displayShiftTable(container, shifts, periodStart) {
     if (shifts.length === 0) {
-        container.innerHTML = '<p>この週のシフトはまだ作成されていません</p>';
+        container.innerHTML = '<p>この期間のシフトはまだ作成されていません</p>';
         return;
     }
+    
+    const dates = getPeriodDates(periodStart);
     
     // 日付ごとにグループ化
     const shiftsByDate = {};
@@ -183,18 +274,15 @@ function displayShiftTable(container, shifts, weekStart) {
     // テーブルを生成
     let html = '<table><thead><tr>';
     
-    // ヘッダー(曜日)
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + i);
-        html += `<th>${dayNames[i]}<br>${formatDate(date).substring(5)}</th>`;
-    }
+    // ヘッダー(日付と曜日)
+    dates.forEach(date => {
+        const dayOfWeek = date.getDay();
+        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
+    });
     html += '</tr></thead><tbody><tr>';
     
     // 各日のシフト
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + i);
+    dates.forEach(date => {
         const dateStr = formatDate(date);
         
         html += '<td class="shift-cell">';
@@ -209,7 +297,7 @@ function displayShiftTable(container, shifts, weekStart) {
             });
         }
         html += '</td>';
-    }
+    });
     
     html += '</tr></tbody></table>';
     container.innerHTML = html;

@@ -12,13 +12,13 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $action = $_GET['action'] ?? '';
 
-// シフト提出
+// シフト提出（半月ごと）
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $data = json_decode(file_get_contents('php://input'), true);
-    $week_start = $data['week_start'] ?? '';
+    $period_start = $data['period_start'] ?? '';
     $shifts = $data['shifts'] ?? [];
     
-    if (empty($week_start) || empty($shifts)) {
+    if (empty($period_start) || empty($shifts)) {
         echo json_encode(['success' => false, 'message' => '必須項目を入力してください']);
         exit;
     }
@@ -27,20 +27,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
         $pdo->beginTransaction();
         
         // 既存のシフト提出を削除
-        $stmt = $pdo->prepare("DELETE FROM shift_submissions WHERE user_id = ? AND week_start = ?");
-        $stmt->execute([$user_id, $week_start]);
+        $stmt = $pdo->prepare("DELETE FROM shift_submissions WHERE user_id = ? AND period_start = ?");
+        $stmt->execute([$user_id, $period_start]);
         
         // 新しいシフトを登録
         $stmt = $pdo->prepare("
-            INSERT INTO shift_submissions (user_id, week_start, day_of_week, start_time, end_time, is_available) 
+            INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available) 
             VALUES (?, ?, ?, ?, ?, ?)
         ");
         
         foreach ($shifts as $shift) {
             $stmt->execute([
                 $user_id,
-                $week_start,
-                $shift['day_of_week'],
+                $period_start,
+                $shift['shift_date'],
                 $shift['start_time'] ?? null,
                 $shift['end_time'] ?? null,
                 $shift['is_available'] ? 1 : 0
@@ -58,37 +58,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
 
 // シフト取得(自分の提出したシフト)
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_my_submissions') {
-    $week_start = $_GET['week_start'] ?? '';
+    $period_start = $_GET['period_start'] ?? '';
     
-    if (empty($week_start)) {
-        echo json_encode(['success' => false, 'message' => '週を指定してください']);
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
         exit;
     }
     
     $stmt = $pdo->prepare("
-        SELECT day_of_week, start_time, end_time, is_available, status 
+        SELECT shift_date, start_time, end_time, is_available, status 
         FROM shift_submissions 
-        WHERE user_id = ? AND week_start = ?
-        ORDER BY day_of_week
+        WHERE user_id = ? AND period_start = ?
+        ORDER BY shift_date
     ");
-    $stmt->execute([$user_id, $week_start]);
+    $stmt->execute([$user_id, $period_start]);
     $shifts = $stmt->fetchAll();
     
     echo json_encode(['success' => true, 'shifts' => $shifts]);
     exit;
 }
 
-// 確定シフト閲覧
+// 確定シフト閲覧（半月ごと）
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts') {
-    $week_start = $_GET['week_start'] ?? '';
+    $period_start = $_GET['period_start'] ?? '';
     
-    if (empty($week_start)) {
-        echo json_encode(['success' => false, 'message' => '週を指定してください']);
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
         exit;
     }
     
-    // 週の最終日を計算
-    $week_end = date('Y-m-d', strtotime($week_start . ' +6 days'));
+    // 半月の最終日を計算（1日開始なら15日まで、16日開始なら月末まで）
+    $start_day = intval(date('d', strtotime($period_start)));
+    if ($start_day === 1) {
+        $period_end = date('Y-m-15', strtotime($period_start));
+    } else {
+        $period_end = date('Y-m-t', strtotime($period_start)); // 月末
+    }
     
     $stmt = $pdo->prepare("
         SELECT fs.*, u.name as user_name
@@ -97,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts') {
         WHERE fs.shift_date BETWEEN ? AND ?
         ORDER BY fs.shift_date, fs.start_time
     ");
-    $stmt->execute([$week_start, $week_end]);
+    $stmt->execute([$period_start, $period_end]);
     $shifts = $stmt->fetchAll();
     
     echo json_encode(['success' => true, 'shifts' => $shifts]);

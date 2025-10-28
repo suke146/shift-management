@@ -2,37 +2,55 @@
 
 // シフト管理の初期化
 function initShiftManage() {
-    updateManageWeekDisplay();
+    updateManagePeriodDisplay();
     loadAllSubmissions();
 }
 
-// 管理週の表示を更新
-function updateManageWeekDisplay() {
+// 管理期間の表示を更新
+function updateManagePeriodDisplay() {
     const display = document.getElementById('manage-week-display');
-    const endDate = new Date(currentManageWeek);
-    endDate.setDate(endDate.getDate() + 6);
+    const endDate = getPeriodEnd(currentManagePeriod);
     
-    display.textContent = `${formatDate(currentManageWeek)} 〜 ${formatDate(endDate)}`;
+    display.textContent = `${formatDate(currentManagePeriod)} 〜 ${formatDate(endDate)}`;
 }
 
-// 管理週を変更
+// 管理期間を変更（半月単位）
 function changeManageWeek(offset) {
-    currentManageWeek.setDate(currentManageWeek.getDate() + (offset * 7));
-    updateManageWeekDisplay();
+    if (offset > 0) {
+        // 次の半月
+        const day = currentManagePeriod.getDate();
+        if (day === 1) {
+            currentManagePeriod.setDate(16);
+        } else {
+            currentManagePeriod.setMonth(currentManagePeriod.getMonth() + 1);
+            currentManagePeriod.setDate(1);
+        }
+    } else {
+        // 前の半月
+        const day = currentManagePeriod.getDate();
+        if (day === 16) {
+            currentManagePeriod.setDate(1);
+        } else {
+            currentManagePeriod.setMonth(currentManagePeriod.getMonth() - 1);
+            currentManagePeriod.setDate(16);
+        }
+    }
+    
+    updateManagePeriodDisplay();
     loadAllSubmissions();
 }
 
 // 全ユーザーのシフト提出を読み込み
 async function loadAllSubmissions() {
     const container = document.getElementById('manage-shifts-container');
-    const weekStart = formatDate(currentManageWeek);
+    const periodStart = formatDate(currentManagePeriod);
     
     try {
-        const response = await fetch(`api/admin.php?action=get_all_submissions&week_start=${weekStart}`);
+        const response = await fetch(`api/admin.php?action=get_all_submissions&period_start=${periodStart}`);
         const data = await response.json();
         
         if (data.success) {
-            displaySubmissions(container, data.submissions, weekStart);
+            displaySubmissions(container, data.submissions, new Date(periodStart));
         } else {
             container.innerHTML = '<p>シフト提出の読み込みに失敗しました</p>';
         }
@@ -42,11 +60,13 @@ async function loadAllSubmissions() {
 }
 
 // シフト提出を表示
-function displaySubmissions(container, submissions, weekStart) {
+function displaySubmissions(container, submissions, periodStart) {
     if (submissions.length === 0) {
-        container.innerHTML = '<p>この週のシフト提出はまだありません</p>';
+        container.innerHTML = '<p>この期間のシフト提出はまだありません</p>';
         return;
     }
+    
+    const dates = getPeriodDates(periodStart);
     
     // ユーザーごとにグループ化
     const submissionsByUser = {};
@@ -54,30 +74,30 @@ function displaySubmissions(container, submissions, weekStart) {
         if (!submissionsByUser[sub.user_name]) {
             submissionsByUser[sub.user_name] = {
                 user_id: sub.user_id,
-                days: {}
+                dates: {}
             };
         }
-        submissionsByUser[sub.user_name].days[sub.day_of_week] = sub;
+        submissionsByUser[sub.user_name].dates[sub.shift_date] = sub;
     });
     
     // テーブルを生成
     let html = '<div class="table-container"><table><thead><tr>';
     html += '<th>名前</th>';
     
-    // 曜日ヘッダー
-    for (let i = 0; i < 7; i++) {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + i);
-        html += `<th>${dayNames[i]}<br>${formatDate(date).substring(5)}</th>`;
-    }
+    // 日付ヘッダー
+    dates.forEach(date => {
+        const dayOfWeek = date.getDay();
+        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
+    });
     html += '</tr></thead><tbody>';
     
     // 各ユーザーの行
     for (const [userName, userData] of Object.entries(submissionsByUser)) {
         html += `<tr><td><strong>${userName}</strong></td>`;
         
-        for (let i = 0; i < 7; i++) {
-            const day = userData.days[i];
+        dates.forEach(date => {
+            const dateStr = formatDate(date);
+            const day = userData.dates[dateStr];
             html += '<td>';
             
             if (day && day.is_available) {
@@ -87,7 +107,7 @@ function displaySubmissions(container, submissions, weekStart) {
                     <br>
                     <input type="checkbox" class="assign-shift" 
                         data-user-id="${userData.user_id}"
-                        data-day="${i}"
+                        data-date="${dateStr}"
                         data-start="${day.start_time}"
                         data-end="${day.end_time}">
                     採用
@@ -97,7 +117,7 @@ function displaySubmissions(container, submissions, weekStart) {
             }
             
             html += '</td>';
-        }
+        });
         
         html += '</tr>';
     }
@@ -116,15 +136,11 @@ async function createFinalShift() {
     }
     
     const shifts = [];
-    const weekStart = formatDate(currentManageWeek);
     
     checkboxes.forEach(checkbox => {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + parseInt(checkbox.dataset.day));
-        
         shifts.push({
             user_id: parseInt(checkbox.dataset.userId),
-            shift_date: formatDate(date),
+            shift_date: checkbox.dataset.date,
             start_time: checkbox.dataset.start,
             end_time: checkbox.dataset.end
         });

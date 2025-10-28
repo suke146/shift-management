@@ -53,11 +53,12 @@ $is_admin = ($user['role'] === 'admin');
                 <div class="card">
                     <form id="shiftSubmitForm" onsubmit="submitShift(event)">
                         <div class="form-group">
-                            <label>対象週</label>
-                            <input type="week" id="shift-week" name="week" required>
+                            <label>対象期間（半月ごと: 1日～15日 / 16日～月末）</label>
+                            <input type="date" id="shift-week" name="period" required>
+                            <small>※選択した日付が含まれる半月期間のシフトを提出します</small>
                         </div>
                         <div class="form-group">
-                            <label>勤務可能日時</label>
+                            <label>勤務可能日時（15分刻み）</label>
                             <div id="shift-days-container"></div>
                         </div>
                         <button type="submit" class="btn btn-primary">シフトを提出</button>
@@ -71,9 +72,9 @@ $is_admin = ($user['role'] === 'admin');
                 <h2>シフト閲覧</h2>
                 <div class="card">
                     <div class="week-selector">
-                        <button onclick="changeWeek(-1)" class="btn btn-secondary">前週</button>
+                        <button onclick="changeWeek(-1)" class="btn btn-secondary">前の半月</button>
                         <span id="current-week-display"></span>
-                        <button onclick="changeWeek(1)" class="btn btn-secondary">翌週</button>
+                        <button onclick="changeWeek(1)" class="btn btn-secondary">次の半月</button>
                     </div>
                     <div id="shift-table-container" class="table-container"></div>
                 </div>
@@ -85,9 +86,9 @@ $is_admin = ($user['role'] === 'admin');
                 <h2>シフト管理</h2>
                 <div class="card">
                     <div class="week-selector">
-                        <button onclick="changeManageWeek(-1)" class="btn btn-secondary">前週</button>
+                        <button onclick="changeManageWeek(-1)" class="btn btn-secondary">前の半月</button>
                         <span id="manage-week-display"></span>
-                        <button onclick="changeManageWeek(1)" class="btn btn-secondary">翌週</button>
+                        <button onclick="changeManageWeek(1)" class="btn btn-secondary">次の半月</button>
                     </div>
                     <div id="manage-shifts-container"></div>
                     <button onclick="createFinalShift()" class="btn btn-success">確定シフトを作成</button>

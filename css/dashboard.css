@@ -141,6 +141,26 @@
     margin-top: 10px;
 }
 
+.time-select-container {
+    width: 100%;
+}
+
+.time-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: white;
+    cursor: pointer;
+}
+
+.time-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
 .table-container {
     overflow-x: auto;
 }

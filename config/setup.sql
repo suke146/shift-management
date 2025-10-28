@@ -14,12 +14,12 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_role ON users(role);
 
--- シフト提出テーブル
+-- シフト提出テーブル (半月ごと)
 CREATE TABLE IF NOT EXISTS shift_submissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    week_start DATE NOT NULL,
-    day_of_week INTEGER NOT NULL, -- 0=月曜, 6=日曜
+    period_start DATE NOT NULL, -- 半月の開始日 (1日または16日)
+    shift_date DATE NOT NULL, -- 実際のシフト日
     start_time TIME NULL,
     end_time TIME NULL,
     is_available BOOLEAN DEFAULT 1,
@@ -27,11 +27,12 @@ CREATE TABLE IF NOT EXISTS shift_submissions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE(user_id, week_start, day_of_week)
+    UNIQUE(user_id, period_start, shift_date)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_week ON shift_submissions(user_id, week_start);
-CREATE INDEX IF NOT EXISTS idx_week_day ON shift_submissions(week_start, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_user_period ON shift_submissions(user_id, period_start);
+CREATE INDEX IF NOT EXISTS idx_period ON shift_submissions(period_start);
+CREATE INDEX IF NOT EXISTS idx_shift_date ON shift_submissions(shift_date);
 
 -- 確定シフトテーブル
 CREATE TABLE IF NOT EXISTS final_shifts (
@@ -44,7 +45,8 @@ CREATE TABLE IF NOT EXISTS final_shifts (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id)
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    UNIQUE(user_id, shift_date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_date ON final_shifts(user_id, shift_date);

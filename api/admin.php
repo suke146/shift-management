@@ -61,12 +61,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_user') {
     exit;
 }
 
-// 全ユーザーのシフト提出を取得
+// 全ユーザーのシフト提出を取得（半月ごと）
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
-    $week_start = $_GET['week_start'] ?? '';
+    $period_start = $_GET['period_start'] ?? '';
     
-    if (empty($week_start)) {
-        echo json_encode(['success' => false, 'message' => '週を指定してください']);
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
         exit;
     }
     
@@ -74,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
         SELECT ss.*, u.name as user_name
         FROM shift_submissions ss
         JOIN users u ON ss.user_id = u.id
-        WHERE ss.week_start = ?
-        ORDER BY u.name, ss.day_of_week
+        WHERE ss.period_start = ?
+        ORDER BY u.name, ss.shift_date
     ");
-    $stmt->execute([$week_start]);
+    $stmt->execute([$period_start]);
     $submissions = $stmt->fetchAll();
     
     echo json_encode(['success' => true, 'submissions' => $submissions]);
@@ -97,10 +97,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create_final_shifts') 
     try {
         $pdo->beginTransaction();
         
+        // SQLiteではUPSERT構文を使用
         $stmt = $pdo->prepare("
             INSERT INTO final_shifts (user_id, shift_date, start_time, end_time, created_by) 
             VALUES (?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE start_time = VALUES(start_time), end_time = VALUES(end_time)
+            ON CONFLICT(user_id, shift_date) 
+            DO UPDATE SET start_time = excluded.start_time, end_time = excluded.end_time, updated_at = CURRENT_TIMESTAMP
         ");
         
         foreach ($shifts as $shift) {
