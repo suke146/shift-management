@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データベース管理 - シフト管理システム</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .admin-card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status-box {
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            background: #f5f5f5;
+            border-left: 4px solid #2196F3;
+        }
+        .status-box.success {
+            background: #e8f5e9;
+            border-left-color: #4CAF50;
+            color: #2e7d32;
+        }
+        .status-box.error {
+            background: #ffebee;
+            border-left-color: #f44336;
+            color: #c62828;
+        }
+        .status-box.warning {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+            color: #e65100;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-large {
+            padding: 15px 30px;
+            font-size: 16px;
+            flex: 1;
+            min-width: 200px;
+        }
+        .info-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 4px;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .code-block {
+            background: #263238;
+            color: #aed581;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-card">
+            <h1>🔧 データベース管理</h1>
+            <p>データベースの状態を確認し、初期化やマイグレーションを実行できます。</p>
+            
+            <div class="btn-group" style="margin: 20px 0;">
+                <button onclick="checkDatabase()" class="btn btn-secondary btn-large">
+                    📊 状態確認
+                </button>
+                <button onclick="window.location.href='index.php'" class="btn btn-primary btn-large">
+                    🏠 ログイン画面へ
+                </button>
+            </div>
+            
+            <div id="status-display"></div>
+        </div>
+
+        <div class="admin-card">
+            <h2>⚙️ データベース操作</h2>
+            
+            <div class="info-section">
+                <h3>🆕 初期化（init_db.php）</h3>
+                <p>新しいデータベースを作成します。テーブルとデフォルト管理者アカウントが作成されます。</p>
+                <p><strong>実行タイミング:</strong> 初回デプロイ時、またはデータベースが空の時</p>
+            </div>
+            
+            <button onclick="executeScript('init')" class="btn btn-success btn-large">
+                ✨ データベースを初期化
+            </button>
+            
+            <hr style="margin: 30px 0;">
+            
+            <div class="info-section">
+                <h3>🔄 マイグレーション（migrate_db.php）</h3>
+                <p>既存のデータベースを週単位から半月単位に変換します。確定シフトは保持されますが、提出済みシフトは削除されます。</p>
+                <p><strong>実行タイミング:</strong> 古いスキーマから新しいスキーマへの移行時</p>
+            </div>
+            
+            <button onclick="executeScript('migrate')" class="btn btn-warning btn-large">
+                🔄 スキーマをマイグレーション
+            </button>
+            
+            <hr style="margin: 30px 0;">
+            
+            <div class="info-section">
+                <h3>🗑️ リセット（reset_db.php）</h3>
+                <p><strong style="color: #f44336;">⚠️ 警告:</strong> 全てのデータが削除されます！テーブルを削除し、空のデータベースになります。</p>
+                <p><strong>実行タイミング:</strong> 完全にやり直したい時のみ</p>
+            </div>
+            
+            <button onclick="executeScript('reset')" class="btn btn-danger btn-large" 
+                    style="background: #f44336;">
+                ⚠️ データベースをリセット（全削除）
+            </button>
+        </div>
+
+        <div class="admin-card">
+            <h2>📖 よくある問題と解決方法</h2>
+            
+            <details style="margin: 10px 0;">
+                <summary style="cursor: pointer; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                    <strong>❌ ログイン時に「通信エラー」が表示される</strong>
+                </summary>
+                <div style="padding: 15px;">
+                    <p><strong>原因:</strong> データベースが初期化されていない、またはテーブルが存在しない</p>
+                    <p><strong>解決:</strong> 「データベースを初期化」ボタンをクリック</p>
+                </div>
+            </details>
+            
+            <details style="margin: 10px 0;">
+                <summary style="cursor: pointer; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                    <strong>⚠️ 「古いスキーマです」と表示される</strong>
+                </summary>
+                <div style="padding: 15px;">
+                    <p><strong>原因:</strong> 週単位のスキーマのまま</p>
+                    <p><strong>解決:</strong> 「スキーマをマイグレーション」ボタンをクリック</p>
+                </div>
+            </details>
+            
+            <details style="margin: 10px 0;">
+                <summary style="cursor: pointer; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                    <strong>🔄 完全にやり直したい</strong>
+                </summary>
+                <div style="padding: 15px;">
+                    <p><strong>手順:</strong></p>
+                    <ol>
+                        <li>「データベースをリセット」をクリック（全データ削除）</li>
+                        <li>「データベースを初期化」をクリック（新規作成）</li>
+                    </ol>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        async function checkDatabase() {
+            const statusDiv = document.getElementById('status-display');
+            statusDiv.innerHTML = '<div class="status-box">確認中...</div>';
+            
+            try {
+                const response = await fetch('test_db.php');
+                const data = await response.json();
+                
+                let statusClass = 'success';
+                if (data.status === 'error') statusClass = 'error';
+                if (data.status === 'warning') statusClass = 'warning';
+                
+                let html = `<div class="status-box ${statusClass}">`;
+                html += `<strong>ステータス:</strong> ${data.message}\n\n`;
+                html += `<strong>詳細:</strong>\n`;
+                html += JSON.stringify(data.checks, null, 2);
+                html += `</div>`;
+                
+                // 推奨アクション
+                if (!data.checks.tables || data.checks.tables.length === 0) {
+                    html += '<div class="status-box error">';
+                    html += '<strong>⚠️ アクション必要:</strong> テーブルが存在しません。\n';
+                    html += '「データベースを初期化」ボタンをクリックしてください。';
+                    html += '</div>';
+                } else if (data.checks.schema_version && data.checks.schema_version.includes('old')) {
+                    html += '<div class="status-box warning">';
+                    html += '<strong>⚠️ アクション必要:</strong> 古いスキーマです。\n';
+                    html += '「スキーマをマイグレーション」ボタンをクリックしてください。';
+                    html += '</div>';
+                } else if (data.status === 'ok') {
+                    html += '<div class="status-box success">';
+                    html += '<strong>✅ 正常:</strong> データベースは正常に動作しています。\n';
+                    html += 'ログイン画面に戻ってシステムを使用できます。';
+                    html += '</div>';
+                }
+                
+                statusDiv.innerHTML = html;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status-box error">エラー: ${error.message}</div>`;
+            }
+        }
+        
+        async function executeScript(action) {
+            const confirmMessages = {
+                'init': 'データベースを初期化しますか？\n\n既存のデータがある場合、エラーが発生する可能性があります。',
+                'migrate': 'スキーマをマイグレーションしますか？\n\n提出済みシフトは削除され、確定シフトは保持されます。',
+                'reset': '⚠️ 警告: 全てのデータが削除されます！\n\n本当にリセットしますか？'
+            };
+            
+            if (!confirm(confirmMessages[action])) {
+                return;
+            }
+            
+            const statusDiv = document.getElementById('status-display');
+            statusDiv.innerHTML = '<div class="status-box">実行中...</div>';
+            
+            const scripts = {
+                'init': 'init_db.php',
+                'migrate': 'migrate_db.php',
+                'reset': 'reset_db.php'
+            };
+            
+            try {
+                const response = await fetch(`execute_db_script.php?script=${action}`);
+                const text = await response.text();
+                
+                statusDiv.innerHTML = `<div class="status-box success">
+                    <strong>実行結果:</strong>\n${text}
+                </div>`;
+                
+                // 完了後、状態を再確認
+                setTimeout(() => {
+                    checkDatabase();
+                }, 1000);
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status-box error">
+                    <strong>エラー:</strong> ${error.message}
+                </div>`;
+            }
+        }
+        
+        // ページ読み込み時に自動チェック
+        window.addEventListener('load', checkDatabase);
+    </script>
+</body>
+</html>
