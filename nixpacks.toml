@@ -1,5 +1,1 @@
-[phases.setup]
-nixPkgs = ["php83", "php83Extensions.pdo_mysql"]
-
-[start]
-cmd = "php -S 0.0.0.0:${PORT:-8000}"
+# このファイルは使用しません - Dockerfileを使用します
