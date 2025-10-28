@@ -2,18 +2,21 @@ FROM php:8.3-cli
 
 # 必要なシステムパッケージをインストール
 RUN apt-get update && apt-get install -y \
-    libzip-dev \
-    unzip \
+    libsqlite3-dev \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# PHP拡張機能をインストール
-RUN docker-php-ext-install pdo pdo_mysql mysqli
+# PHP拡張機能をインストール (SQLite)
+RUN docker-php-ext-install pdo pdo_sqlite
 
 # 作業ディレクトリを設定
 WORKDIR /var/www/html
 
 # アプリケーションファイルをコピー
 COPY . .
+
+# データディレクトリを作成
+RUN mkdir -p /var/www/html/data && chmod 777 /var/www/html/data
 
 # ポートを環境変数から取得（Railwayが自動設定）
 ENV PORT=8000

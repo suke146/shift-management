@@ -1,34 +1,37 @@
 <?php
 /**
- * Railway MySQL データベース初期化スクリプト
- * MySQLクライアントがない環境でも、PHPから直接データベースを初期化できます
+ * SQLite データベース初期化スクリプト
  */
 
-echo "=== Railway MySQL データベース初期化 ===\n\n";
+echo "=== SQLite データベース初期化 ===\n\n";
 
-// Railway の環境変数から接続情報を取得
-$host = getenv('DB_HOST') ?: 'turntable.proxy.rlwy.net';
-$port = getenv('DB_PORT') ?: '24203';
-$username = getenv('DB_USER') ?: 'root';
-$password = getenv('DB_PASSWORD') ?: 'vMHpPrkQHZpKWGZhZeamYPaBieaGMkow';
-$database = getenv('DB_NAME') ?: 'railway';
+// データベースファイルのパス
+$db_file = __DIR__ . '/data/shift_management.db';
+$data_dir = dirname($db_file);
 
-echo "接続情報:\n";
-echo "Host: $host\n";
-echo "Port: $port\n";
-echo "Database: $database\n\n";
+// データディレクトリを作成
+if (!is_dir($data_dir)) {
+    mkdir($data_dir, 0755, true);
+    echo "✓ データディレクトリ作成: $data_dir\n";
+}
+
+echo "データベースファイル: $db_file\n\n";
 
 try {
     echo "データベースに接続中...\n";
     $pdo = new PDO(
-        "mysql:host=$host;port=$port;charset=utf8mb4",
-        $username,
-        $password,
+        "sqlite:$db_file",
+        null,
+        null,
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false
         ]
     );
+    
+    // 外部キー制約を有効化
+    $pdo->exec('PRAGMA foreign_keys = ON');
+    
     echo "✓ 接続成功\n\n";
 
     // setup.sql ファイルを読み込み
@@ -58,36 +61,23 @@ try {
     $successCount = 0;
     $errorCount = 0;
     
-    foreach ($statements as $index => $statement) {
+    foreach ($statements as $statement) {
         try {
-            // データベース作成文は特別処理
-            if (stripos($statement, 'CREATE DATABASE') !== false) {
-                $pdo->exec($statement);
-                echo "✓ データベース作成\n";
-                // データベースを選択
-                $pdo->exec("USE $database");
-                $successCount++;
-                continue;
-            }
-            
-            if (stripos($statement, 'USE ') !== false) {
-                $pdo->exec($statement);
-                echo "✓ データベース選択\n";
-                $successCount++;
-                continue;
-            }
-            
             $pdo->exec($statement);
             
             // どのテーブルを作成したかを表示
             if (stripos($statement, 'CREATE TABLE') !== false) {
-                preg_match('/CREATE TABLE[^`]*`?(\w+)`?/i', $statement, $matches);
+                preg_match('/CREATE TABLE[^"]*"?(\w+)"?/i', $statement, $matches);
                 $tableName = $matches[1] ?? 'unknown';
                 echo "✓ テーブル作成: $tableName\n";
-            } elseif (stripos($statement, 'INSERT INTO') !== false) {
-                preg_match('/INSERT INTO[^`]*`?(\w+)`?/i', $statement, $matches);
+            } elseif (stripos($statement, 'INSERT') !== false) {
+                preg_match('/INSERT[^"]*INTO[^"]*"?(\w+)"?/i', $statement, $matches);
                 $tableName = $matches[1] ?? 'unknown';
                 echo "✓ データ挿入: $tableName\n";
+            } elseif (stripos($statement, 'CREATE INDEX') !== false) {
+                preg_match('/CREATE INDEX[^"]*"?(\w+)"?/i', $statement, $matches);
+                $indexName = $matches[1] ?? 'unknown';
+                echo "✓ インデックス作成: $indexName\n";
             }
             
             $successCount++;
@@ -95,7 +85,7 @@ try {
         } catch (PDOException $e) {
             // 既に存在するエラーは無視
             if (strpos($e->getMessage(), 'already exists') !== false ||
-                strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                strpos($e->getMessage(), 'UNIQUE constraint failed') !== false) {
                 echo "⚠ スキップ: 既に存在します\n";
             } else {
                 echo "✗ エラー: " . $e->getMessage() . "\n";
@@ -110,7 +100,7 @@ try {
     
     // テーブル一覧を表示
     echo "作成されたテーブル:\n";
-    $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+    $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchAll(PDO::FETCH_COLUMN);
     foreach ($tables as $table) {
         echo "  - $table\n";
     }
