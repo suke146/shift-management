@@ -6,12 +6,12 @@
 
 echo "=== Railway MySQL データベース初期化 ===\n\n";
 
-// Railway の接続情報を入力してください
-$host = 'turntable.proxy.rlwy.net';
-$port = '24203';
-$username = 'root';
-$password = 'vMHpPrkQHZpKWGZhZeamYPaBieaGMkow'; // Railway の "show" で表示されたパスワード
-$database = 'railway';
+// Railway の環境変数から接続情報を取得
+$host = getenv('DB_HOST') ?: 'turntable.proxy.rlwy.net';
+$port = getenv('DB_PORT') ?: '24203';
+$username = getenv('DB_USER') ?: 'root';
+$password = getenv('DB_PASSWORD') ?: 'vMHpPrkQHZpKWGZhZeamYPaBieaGMkow';
+$database = getenv('DB_NAME') ?: 'railway';
 
 echo "接続情報:\n";
 echo "Host: $host\n";
