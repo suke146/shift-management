@@ -11,8 +11,25 @@ $data_dir = dirname($db_file);
 
 // データディレクトリを作成
 if (!is_dir($data_dir)) {
-    mkdir($data_dir, 0755, true);
+    if (!mkdir($data_dir, 0777, true)) {
+        die("✗ エラー: データディレクトリの作成に失敗しました: $data_dir\n");
+    }
+    chmod($data_dir, 0777); // 確実に書き込み権限を付与
     echo "✓ データディレクトリ作成: $data_dir\n";
+} else {
+    echo "✓ データディレクトリは既に存在します: $data_dir\n";
+}
+
+// ディレクトリの権限を確認
+if (!is_writable($data_dir)) {
+    echo "⚠ 警告: データディレクトリに書き込み権限がありません\n";
+    echo "  権限変更を試みます...\n";
+    chmod($data_dir, 0777);
+    if (is_writable($data_dir)) {
+        echo "✓ 権限変更成功\n";
+    } else {
+        die("✗ エラー: データディレクトリに書き込みできません: $data_dir\n");
+    }
 }
 
 echo "データベースファイル: $db_file\n\n";
