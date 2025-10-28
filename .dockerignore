@@ -4,7 +4,6 @@
 README.md
 DEPLOY_GUIDE.md
 DEPLOY_RAILWAY.md
-init_db.php
 *.md
 .DS_Store
 Thumbs.db
