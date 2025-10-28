@@ -1,16 +1,25 @@
-FROM php:8.2-cli
+FROM php:8.3-cli
 
-# MySQL PDO拡張をインストール
+# 必要なシステムパッケージをインストール
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# PHP拡張機能をインストール
 RUN docker-php-ext-install pdo pdo_mysql mysqli
 
-# 作業ディレクトリ
-WORKDIR /app
+# 作業ディレクトリを設定
+WORKDIR /var/www/html
 
 # アプリケーションファイルをコピー
 COPY . .
 
-# ポート8000を公開
-EXPOSE 8000
+# ポートを環境変数から取得（Railwayが自動設定）
+ENV PORT=8000
+
+# ヘルスチェック用のファイル
+RUN echo "<?php echo 'OK';" > /var/www/html/health.php
 
 # PHPビルトインサーバーを起動
-CMD ["php", "-S", "0.0.0.0:8000"]
+CMD php -S 0.0.0.0:${PORT} -t /var/www/html
