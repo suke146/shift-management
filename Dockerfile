@@ -21,5 +21,5 @@ ENV PORT=8000
 # ヘルスチェック用のファイル
 RUN echo "<?php echo 'OK';" > /var/www/html/health.php
 
-# PHPビルトインサーバーを起動
-CMD php -S 0.0.0.0:${PORT} -t /var/www/html
+# PHPビルトインサーバーを起動（ルーターファイルなし）
+CMD php -S 0.0.0.0:${PORT}
