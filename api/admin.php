@@ -84,6 +84,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
     exit;
 }
 
+// 1日ごとのシフト提出を取得
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_daily_submissions') {
+    $date = $_GET['date'] ?? '';
+    
+    if (empty($date)) {
+        echo json_encode(['success' => false, 'message' => '日付を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT ss.*, u.name as user_name
+        FROM shift_submissions ss
+        JOIN users u ON ss.user_id = u.id
+        WHERE ss.shift_date = ?
+        ORDER BY u.name
+    ");
+    $stmt->execute([$date]);
+    $submissions = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
+    exit;
+}
+
 // 確定シフト作成
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create_final_shifts') {
     $data = json_decode(file_get_contents('php://input'), true);
