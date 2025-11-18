@@ -166,5 +166,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts') {
     exit;
 }
 
+// 全員の希望シフト閲覧（半月ごと）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_requests') {
+    $period_start = $_GET['period_start'] ?? '';
+    
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT ss.*, u.name as user_name
+        FROM shift_submissions ss
+        JOIN users u ON ss.user_id = u.id
+        WHERE ss.period_start = ?
+        ORDER BY u.name, ss.shift_date
+    ");
+    $stmt->execute([$period_start]);
+    $submissions = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
+    exit;
+}
+
+// 確定シフト閲覧（日付指定）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts_by_date') {
+    $date = $_GET['date'] ?? '';
+    
+    if (empty($date)) {
+        echo json_encode(['success' => false, 'message' => '日付を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT fs.*, u.name as user_name
+        FROM final_shifts fs
+        JOIN users u ON fs.user_id = u.id
+        WHERE fs.shift_date = ?
+        ORDER BY fs.start_time
+    ");
+    $stmt->execute([$date]);
+    $shifts = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'shifts' => $shifts]);
+    exit;
+}
+
+// 確定シフト閲覧（期間指定）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts_range') {
+    $start_date = $_GET['start_date'] ?? '';
+    $end_date = $_GET['end_date'] ?? '';
+    
+    if (empty($start_date) || empty($end_date)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT fs.*, u.name as user_name
+        FROM final_shifts fs
+        JOIN users u ON fs.user_id = u.id
+        WHERE fs.shift_date BETWEEN ? AND ?
+        ORDER BY fs.shift_date, fs.start_time
+    ");
+    $stmt->execute([$start_date, $end_date]);
+    $shifts = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'shifts' => $shifts]);
+    exit;
+}
+
+// 希望シフト閲覧（日付指定）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_requests_by_date') {
+    $date = $_GET['date'] ?? '';
+    
+    if (empty($date)) {
+        echo json_encode(['success' => false, 'message' => '日付を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT ss.*, u.name as user_name
+        FROM shift_submissions ss
+        JOIN users u ON ss.user_id = u.id
+        WHERE ss.shift_date = ?
+        ORDER BY u.name
+    ");
+    $stmt->execute([$date]);
+    $submissions = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
+    exit;
+}
+
+// 希望シフト閲覧（期間指定）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_requests_range') {
+    $start_date = $_GET['start_date'] ?? '';
+    $end_date = $_GET['end_date'] ?? '';
+    
+    if (empty($start_date) || empty($end_date)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT ss.*, u.name as user_name
+        FROM shift_submissions ss
+        JOIN users u ON ss.user_id = u.id
+        WHERE ss.shift_date BETWEEN ? AND ?
+        ORDER BY u.name, ss.shift_date
+    ");
+    $stmt->execute([$start_date, $end_date]);
+    $submissions = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => '無効なリクエストです']);
 ?>
