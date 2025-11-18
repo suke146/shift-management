@@ -1,3 +1,105 @@
+// --- シフト希望一覧（全員分）表示用 ---
+let currentAllPeriod = getPeriodStart(new Date());
+
+function updateAllPeriodDisplay() {
+    const display = document.getElementById('all-week-display');
+    const endDate = getPeriodEnd(currentAllPeriod);
+    display.textContent = `${formatDate(currentAllPeriod)} 〜 ${formatDate(endDate)}`;
+}
+
+function changeAllWeek(offset) {
+    if (offset > 0) {
+        const day = currentAllPeriod.getDate();
+        if (day === 1) {
+            currentAllPeriod.setDate(16);
+        } else {
+            currentAllPeriod.setMonth(currentAllPeriod.getMonth() + 1);
+            currentAllPeriod.setDate(1);
+        }
+    } else {
+        const day = currentAllPeriod.getDate();
+        if (day === 16) {
+            currentAllPeriod.setDate(1);
+        } else {
+            currentAllPeriod.setMonth(currentAllPeriod.getMonth() - 1);
+            currentAllPeriod.setDate(16);
+        }
+    }
+    updateAllPeriodDisplay();
+    loadAllShiftSubmissions();
+}
+
+async function loadAllShiftSubmissions() {
+    const container = document.getElementById('all-shifts-container');
+    const periodStart = formatDate(currentAllPeriod);
+    try {
+        const response = await fetch(`api/shift.php?action=get_all_submissions&period_start=${periodStart}`);
+        const data = await response.json();
+        if (data.success) {
+            displayAllShiftSubmissions(container, data.submissions, new Date(periodStart));
+        } else {
+            container.innerHTML = '<p>シフト提出の読み込みに失敗しました</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p>通信エラーが発生しました</p>';
+    }
+}
+
+function displayAllShiftSubmissions(container, submissions, periodStart) {
+    if (submissions.length === 0) {
+        container.innerHTML = '<p>この期間のシフト提出はまだありません</p>';
+        return;
+    }
+    const dates = getPeriodDates(periodStart);
+    // ユーザーごとにグループ化
+    const submissionsByUser = {};
+    submissions.forEach(sub => {
+        if (!submissionsByUser[sub.user_name]) {
+            submissionsByUser[sub.user_name] = {
+                user_id: sub.user_id,
+                dates: {}
+            };
+        }
+        submissionsByUser[sub.user_name].dates[sub.shift_date] = sub;
+    });
+    // テーブル生成
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>名前</th>';
+    dates.forEach(date => {
+        const dayOfWeek = date.getDay();
+        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    for (const [userName, userData] of Object.entries(submissionsByUser)) {
+        html += `<tr><td><strong>${userName}</strong></td>`;
+        dates.forEach(date => {
+            const dateStr = formatDate(date);
+            const day = userData.dates[dateStr];
+            html += '<td>';
+            if (day && day.is_available) {
+                html += `<div class="shift-submission">${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}</div>`;
+            } else {
+                html += '<span style="color: #999;">×</span>';
+            }
+            html += '</td>';
+        });
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// ページ切り替え時の初期化
+document.addEventListener('DOMContentLoaded', () => {
+    const allPage = document.getElementById('shift-all-page');
+    if (allPage) {
+        // ページが表示されたら初期化
+        allPage.addEventListener('show', () => {
+            updateAllPeriodDisplay();
+            loadAllShiftSubmissions();
+        });
+    }
+});
 let currentPeriod = getPeriodStart(new Date());
 let currentManagePeriod = getPeriodStart(new Date());
 
@@ -55,48 +157,72 @@ function formatDate(date) {
 // 曜日名
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 
-// 15分刻みの時刻オプションを生成
-function generateTimeOptions() {
-    const options = [];
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            const hour = String(h).padStart(2, '0');
-            const min = String(m).padStart(2, '0');
-            options.push(`${hour}:${min}`);
+// input type="time"を使うことでスマホのUIを最適化
+
+
+// シフト提出用 期間表示・切替
+let currentSubmitPeriod = getPeriodStart(new Date());
+
+function updateSubmitPeriodDisplay() {
+    const display = document.getElementById('submit-week-display');
+    if (display) {
+        const endDate = getPeriodEnd(currentSubmitPeriod);
+        display.textContent = `${formatDate(currentSubmitPeriod)} 〜 ${formatDate(endDate)}`;
+    }
+}
+
+function changeSubmitWeek(offset) {
+    if (offset > 0) {
+        const day = currentSubmitPeriod.getDate();
+        if (day === 1) {
+            currentSubmitPeriod.setDate(16);
+        } else {
+            currentSubmitPeriod.setMonth(currentSubmitPeriod.getMonth() + 1);
+            currentSubmitPeriod.setDate(1);
+        }
+    } else {
+        const day = currentSubmitPeriod.getDate();
+        if (day === 16) {
+            currentSubmitPeriod.setDate(1);
+        } else {
+            currentSubmitPeriod.setMonth(currentSubmitPeriod.getMonth() - 1);
+            currentSubmitPeriod.setDate(16);
         }
     }
-    return options;
-}
-
-// 時刻選択のセレクトボックスを生成
-function createTimeSelect(defaultValue = '09:00') {
-    const options = generateTimeOptions();
-    let html = '<select class="time-select">';
-    options.forEach(time => {
-        const selected = time === defaultValue ? 'selected' : '';
-        html += `<option value="${time}" ${selected}>${time}</option>`;
-    });
-    html += '</select>';
-    return html;
-}
-
-// シフト提出の初期化
-function initShiftSubmit() {
-    const periodInput = document.getElementById('shift-week');
+    updateSubmitPeriodDisplay();
     const container = document.getElementById('shift-days-container');
-    
-    // 現在の半月期間をデフォルトに設定
-    const periodStart = getPeriodStart(new Date());
-    periodInput.value = formatDate(periodStart);
-    
-    // 日付ごとの入力欄を生成
-    generateShiftDays(container, periodStart);
-    
-    // 期間変更時のイベント
-    periodInput.addEventListener('change', function() {
-        const newPeriod = getPeriodStart(new Date(this.value));
-        generateShiftDays(container, newPeriod);
-    });
+    generateShiftDays(container, currentSubmitPeriod);
+}
+
+async function initShiftSubmit() {
+    currentSubmitPeriod = getPeriodStart(new Date());
+    updateSubmitPeriodDisplay();
+    const container = document.getElementById('shift-days-container');
+    // まず空欄で生成
+    generateShiftDays(container, currentSubmitPeriod);
+    // 既存提出内容があれば取得して反映
+    const periodStart = formatDate(currentSubmitPeriod);
+    try {
+        const res = await fetch(`api/shift.php?action=get_my_submissions&period_start=${periodStart}`);
+        const data = await res.json();
+        if (data.success && data.shifts && data.shifts.length > 0) {
+            // 日付ごとに反映
+            data.shifts.forEach((shift, idx) => {
+                const checkbox = document.querySelector(`.availability-check[data-index="${idx}"]`);
+                const startTime = document.querySelector(`.start-time[data-index="${idx}"]`);
+                const endTime = document.querySelector(`.end-time[data-index="${idx}"]`);
+                if (checkbox) checkbox.checked = !!shift.is_available;
+                if (startTime) startTime.value = shift.start_time || '09:00';
+                if (endTime) endTime.value = shift.end_time || '18:00';
+            });
+            // 備考（note）がAPIで取得できる場合は反映（要API拡張）
+            if (data.note !== undefined && document.getElementById('shift-note')) {
+                document.getElementById('shift-note').value = data.note;
+            }
+        }
+    } catch (e) {
+        // 取得失敗時は何もしない
+    }
 }
 
 // シフト日の入力欄を生成（半月分）
@@ -106,7 +232,6 @@ function generateShiftDays(container, periodStart) {
     
     dates.forEach((date, index) => {
         const dayOfWeek = date.getDay();
-        
         const dayDiv = document.createElement('div');
         dayDiv.className = 'shift-day';
         dayDiv.innerHTML = `
@@ -119,25 +244,18 @@ function generateShiftDays(container, periodStart) {
             <div class="shift-day-times" id="times-${index}">
                 <div class="form-group">
                     <label>開始時刻</label>
-                    <div class="time-select-container" data-index="${index}" data-type="start">
-                        ${createTimeSelect('09:00')}
-                    </div>
+                    <input type="time" class="start-time" data-index="${index}" value="09:00" step="900">
                 </div>
                 <div class="form-group">
                     <label>終了時刻</label>
-                    <div class="time-select-container" data-index="${index}" data-type="end">
-                        ${createTimeSelect('18:00')}
-                    </div>
+                    <input type="time" class="end-time" data-index="${index}" value="18:00" step="900">
                 </div>
             </div>
         `;
-        
         container.appendChild(dayDiv);
-        
         // チェックボックスのイベント
         const checkbox = dayDiv.querySelector('.availability-check');
         const timesDiv = dayDiv.querySelector('.shift-day-times');
-        
         checkbox.addEventListener('change', function() {
             timesDiv.style.display = this.checked ? 'grid' : 'none';
         });
@@ -148,28 +266,25 @@ function generateShiftDays(container, periodStart) {
 async function submitShift(event) {
     event.preventDefault();
     
-    const periodInput = document.getElementById('shift-week').value;
     const messageDiv = document.getElementById('submit-message');
-    
     // 半月期間の開始日
-    const periodStart = formatDate(getPeriodStart(new Date(periodInput)));
-    const dates = getPeriodDates(new Date(periodStart));
-    
+    const periodStart = formatDate(currentSubmitPeriod);
+    const dates = getPeriodDates(currentSubmitPeriod);
+    // 備考
+    const note = document.getElementById('shift-note')?.value || '';
     // シフトデータを収集
     const shifts = [];
     dates.forEach((date, index) => {
         const checkbox = document.querySelector(`.availability-check[data-index="${index}"]`);
-        const startSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="start"] select`);
-        const endSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="end"] select`);
-        
+        const startTime = document.querySelector(`.start-time[data-index="${index}"]`);
+        const endTime = document.querySelector(`.end-time[data-index="${index}"]`);
         shifts.push({
             shift_date: formatDate(date),
             is_available: checkbox.checked,
-            start_time: checkbox.checked ? startSelect.value : null,
-            end_time: checkbox.checked ? endSelect.value : null
+            start_time: checkbox.checked ? startTime.value : null,
+            end_time: checkbox.checked ? endTime.value : null
         });
     });
-    
     try {
         const response = await fetch('api/shift.php?action=submit', {
             method: 'POST',
@@ -178,12 +293,11 @@ async function submitShift(event) {
             },
             body: JSON.stringify({
                 period_start: periodStart,
-                shifts: shifts
+                shifts: shifts,
+                note: note
             })
         });
-        
         const data = await response.json();
-        
         if (data.success) {
             showMessage(messageDiv, data.message, 'success');
         } else {

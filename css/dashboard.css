@@ -145,7 +145,8 @@
     width: 100%;
 }
 
-.time-select {
+.start-time,
+.end-time {
     width: 100%;
     padding: 8px 12px;
     border: 1px solid var(--border-color);
@@ -155,7 +156,8 @@
     cursor: pointer;
 }
 
-.time-select:focus {
+.start-time:focus,
+.end-time:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);

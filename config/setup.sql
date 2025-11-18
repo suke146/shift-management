@@ -54,4 +54,4 @@ CREATE INDEX IF NOT EXISTS idx_date ON final_shifts(shift_date);
 
 -- デフォルト管理者アカウント作成 (パスワード: admin123)
 INSERT OR IGNORE INTO users (name, email, password, role) VALUES 
-('管理者', 'admin@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin');
+('管理者', 'admin@example.com', '$2y$12$hctBhCI4JjGBFWHHTRwAdutgS5v/RBnQWOHgZFDVyTdHSmLhr3FfS', 'admin');

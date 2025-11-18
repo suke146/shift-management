@@ -1,3 +1,22 @@
+// 全ユーザーのシフト提出を取得（半月ごと）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
+    $period_start = $_GET['period_start'] ?? '';
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+    $stmt = $pdo->prepare("
+        SELECT ss.*, u.name as user_name
+        FROM shift_submissions ss
+        JOIN users u ON ss.user_id = u.id
+        WHERE ss.period_start = ?
+        ORDER BY u.name, ss.shift_date
+    ");
+    $stmt->execute([$period_start]);
+    $submissions = $stmt->fetchAll();
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
+    exit;
+}
 <?php
 header('Content-Type: application/json');
 require_once '../config/db.php';
@@ -17,36 +36,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
     $data = json_decode(file_get_contents('php://input'), true);
     $period_start = $data['period_start'] ?? '';
     $shifts = $data['shifts'] ?? [];
-    
+    $note = $data['note'] ?? '';
     if (empty($period_start) || empty($shifts)) {
         echo json_encode(['success' => false, 'message' => '必須項目を入力してください']);
         exit;
     }
-    
     try {
         $pdo->beginTransaction();
-        
         // 既存のシフト提出を削除
         $stmt = $pdo->prepare("DELETE FROM shift_submissions WHERE user_id = ? AND period_start = ?");
         $stmt->execute([$user_id, $period_start]);
-        
         // 新しいシフトを登録
-        $stmt = $pdo->prepare("
-            INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-        
-        foreach ($shifts as $shift) {
-            $stmt->execute([
-                $user_id,
-                $period_start,
-                $shift['shift_date'],
-                $shift['start_time'] ?? null,
-                $shift['end_time'] ?? null,
-                $shift['is_available'] ? 1 : 0
-            ]);
+        // noteカラムがある場合
+        $hasNote = false;
+        $colCheck = $pdo->query("PRAGMA table_info(shift_submissions)")->fetchAll();
+        foreach ($colCheck as $col) {
+            if ($col['name'] === 'note') $hasNote = true;
         }
-        
+        if ($hasNote) {
+            $stmt = $pdo->prepare("
+                INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available, note) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            foreach ($shifts as $shift) {
+                $stmt->execute([
+                    $user_id,
+                    $period_start,
+                    $shift['shift_date'],
+                    $shift['start_time'] ?? null,
+                    $shift['end_time'] ?? null,
+                    $shift['is_available'] ? 1 : 0,
+                    $note
+                ]);
+            }
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            foreach ($shifts as $shift) {
+                $stmt->execute([
+                    $user_id,
+                    $period_start,
+                    $shift['shift_date'],
+                    $shift['start_time'] ?? null,
+                    $shift['end_time'] ?? null,
+                    $shift['is_available'] ? 1 : 0
+                ]);
+            }
+        }
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'シフトを提出しました']);
     } catch (PDOException $e) {
@@ -59,22 +97,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
 // シフト取得(自分の提出したシフト)
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_my_submissions') {
     $period_start = $_GET['period_start'] ?? '';
-    
     if (empty($period_start)) {
         echo json_encode(['success' => false, 'message' => '期間を指定してください']);
         exit;
     }
-    
-    $stmt = $pdo->prepare("
-        SELECT shift_date, start_time, end_time, is_available, status 
-        FROM shift_submissions 
-        WHERE user_id = ? AND period_start = ?
-        ORDER BY shift_date
-    ");
-    $stmt->execute([$user_id, $period_start]);
-    $shifts = $stmt->fetchAll();
-    
-    echo json_encode(['success' => true, 'shifts' => $shifts]);
+    // noteカラムがあるかチェック
+    $hasNote = false;
+    $colCheck = $pdo->query("PRAGMA table_info(shift_submissions)")->fetchAll();
+    foreach ($colCheck as $col) {
+        if ($col['name'] === 'note') $hasNote = true;
+    }
+    if ($hasNote) {
+        $stmt = $pdo->prepare("
+            SELECT shift_date, start_time, end_time, is_available, status, note 
+            FROM shift_submissions 
+            WHERE user_id = ? AND period_start = ?
+            ORDER BY shift_date
+        ");
+        $stmt->execute([$user_id, $period_start]);
+        $shifts = $stmt->fetchAll();
+        // 備考は1件目から取得（全日同じnoteで保存されている前提）
+        $note = count($shifts) > 0 ? $shifts[0]['note'] : '';
+        // noteを各shiftから除外
+        foreach ($shifts as &$s) { unset($s['note']); }
+        echo json_encode(['success' => true, 'shifts' => $shifts, 'note' => $note]);
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT shift_date, start_time, end_time, is_available, status 
+            FROM shift_submissions 
+            WHERE user_id = ? AND period_start = ?
+            ORDER BY shift_date
+        ");
+        $stmt->execute([$user_id, $period_start]);
+        $shifts = $stmt->fetchAll();
+        echo json_encode(['success' => true, 'shifts' => $shifts]);
+    }
     exit;
 }
 

@@ -39,6 +39,7 @@ $is_admin = ($user['role'] === 'admin');
             <ul class="menu">
                 <li><a href="#" onclick="showPage('shift-submit')" class="menu-item active">シフト提出</a></li>
                 <li><a href="#" onclick="showPage('shift-view')" class="menu-item">シフト閲覧</a></li>
+                <li><a href="#" onclick="showPage('shift-all')" class="menu-item">シフト希望一覧</a></li>
                 <?php if ($is_admin): ?>
                 <li><a href="#" onclick="showPage('shift-manage')" class="menu-item">シフト管理</a></li>
                 <li><a href="#" onclick="showPage('user-manage')" class="menu-item">メンバー管理</a></li>
@@ -54,12 +55,20 @@ $is_admin = ($user['role'] === 'admin');
                     <form id="shiftSubmitForm" onsubmit="submitShift(event)">
                         <div class="form-group">
                             <label>対象期間（半月ごと: 1日～15日 / 16日～月末）</label>
-                            <input type="date" id="shift-week" name="period" required>
-                            <small>※選択した日付が含まれる半月期間のシフトを提出します</small>
+                            <div class="week-selector">
+                                <button type="button" onclick="changeSubmitWeek(-1)" class="btn btn-secondary">前の半月</button>
+                                <span id="submit-week-display"></span>
+                                <button type="button" onclick="changeSubmitWeek(1)" class="btn btn-secondary">次の半月</button>
+                            </div>
+                            <small>※ボタンで半月単位の期間を切り替えます</small>
                         </div>
                         <div class="form-group">
                             <label>勤務可能日時（15分刻み）</label>
                             <div id="shift-days-container"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>備考・休み理由など</label>
+                            <textarea id="shift-note" name="note" rows="2" placeholder="例：○日は通院のため休み希望"></textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">シフトを提出</button>
                     </form>
@@ -80,6 +89,19 @@ $is_admin = ($user['role'] === 'admin');
                 </div>
             </div>
             
+            <!-- シフト希望一覧ページ（全員分） -->
+            <div id="shift-all-page" class="page">
+                <h2>シフト希望一覧</h2>
+                <div class="card">
+                    <div class="week-selector">
+                        <button onclick="changeAllWeek(-1)" class="btn btn-secondary">前の半月</button>
+                        <span id="all-week-display"></span>
+                        <button onclick="changeAllWeek(1)" class="btn btn-secondary">次の半月</button>
+                    </div>
+                    <div id="all-shifts-container" class="table-container"></div>
+                </div>
+            </div>
+
             <?php if ($is_admin): ?>
             <!-- シフト管理ページ -->
             <div id="shift-manage-page" class="page">

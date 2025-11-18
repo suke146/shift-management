@@ -14,6 +14,10 @@ function showPage(pageName) {
         initShiftSubmit();
     } else if (pageName === 'shift-view') {
         initShiftView();
+    } else if (pageName === 'shift-all') {
+        // シフト希望一覧ページの初期化
+        if (typeof updateAllPeriodDisplay === 'function') updateAllPeriodDisplay();
+        if (typeof loadAllShiftSubmissions === 'function') loadAllShiftSubmissions();
     } else if (pageName === 'shift-manage') {
         initShiftManage();
     } else if (pageName === 'user-manage') {
@@ -23,5 +27,12 @@ function showPage(pageName) {
 
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
-    initShiftSubmit();
+    // どのページがactiveか判定
+    const activePage = document.querySelector('.page.active');
+    if (activePage && activePage.id === 'shift-all-page') {
+        if (typeof updateAllPeriodDisplay === 'function') updateAllPeriodDisplay();
+        if (typeof loadAllShiftSubmissions === 'function') loadAllShiftSubmissions();
+    } else {
+        initShiftSubmit();
+    }
 });
