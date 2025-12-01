@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: shift-management
+    env: docker
+    plan: free
+    healthCheckPath: /health.php
+    envVars:
+      - key: PORT
+        generateValue: true
