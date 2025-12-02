@@ -1,107 +1,7 @@
-// --- シフト希望一覧（全員分）表示用 ---
-let currentAllPeriod = getPeriodStart(new Date());
-
-function updateAllPeriodDisplay() {
-    const display = document.getElementById('all-week-display');
-    const endDate = getPeriodEnd(currentAllPeriod);
-    display.textContent = `${formatDate(currentAllPeriod)} 〜 ${formatDate(endDate)}`;
-}
-
-function changeAllWeek(offset) {
-    if (offset > 0) {
-        const day = currentAllPeriod.getDate();
-        if (day === 1) {
-            currentAllPeriod.setDate(16);
-        } else {
-            currentAllPeriod.setMonth(currentAllPeriod.getMonth() + 1);
-            currentAllPeriod.setDate(1);
-        }
-    } else {
-        const day = currentAllPeriod.getDate();
-        if (day === 16) {
-            currentAllPeriod.setDate(1);
-        } else {
-            currentAllPeriod.setMonth(currentAllPeriod.getMonth() - 1);
-            currentAllPeriod.setDate(16);
-        }
-    }
-    updateAllPeriodDisplay();
-    loadAllShiftSubmissions();
-}
-
-async function loadAllShiftSubmissions() {
-    const container = document.getElementById('all-shifts-container');
-    const periodStart = formatDate(currentAllPeriod);
-    try {
-        const response = await fetch(`api/shift.php?action=get_all_submissions&period_start=${periodStart}`);
-        const data = await response.json();
-        if (data.success) {
-            displayAllShiftSubmissions(container, data.submissions, new Date(periodStart));
-        } else {
-            container.innerHTML = '<p>シフト提出の読み込みに失敗しました</p>';
-        }
-    } catch (error) {
-        container.innerHTML = '<p>通信エラーが発生しました</p>';
-    }
-}
-
-function displayAllShiftSubmissions(container, submissions, periodStart) {
-    if (submissions.length === 0) {
-        container.innerHTML = '<p>この期間のシフト提出はまだありません</p>';
-        return;
-    }
-    const dates = getPeriodDates(periodStart);
-    // ユーザーごとにグループ化
-    const submissionsByUser = {};
-    submissions.forEach(sub => {
-        if (!submissionsByUser[sub.user_name]) {
-            submissionsByUser[sub.user_name] = {
-                user_id: sub.user_id,
-                dates: {}
-            };
-        }
-        submissionsByUser[sub.user_name].dates[sub.shift_date] = sub;
-    });
-    // テーブル生成
-    let html = '<div class="table-container"><table><thead><tr>';
-    html += '<th>名前</th>';
-    dates.forEach(date => {
-        const dayOfWeek = date.getDay();
-        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-    for (const [userName, userData] of Object.entries(submissionsByUser)) {
-        html += `<tr><td><strong>${userName}</strong></td>`;
-        dates.forEach(date => {
-            const dateStr = formatDate(date);
-            const day = userData.dates[dateStr];
-            html += '<td>';
-            if (day && day.is_available) {
-                html += `<div class="shift-submission">${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}</div>`;
-            } else {
-                html += '<span style="color: #999;">×</span>';
-            }
-            html += '</td>';
-        });
-        html += '</tr>';
-    }
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-}
-
-// ページ切り替え時の初期化
-document.addEventListener('DOMContentLoaded', () => {
-    const allPage = document.getElementById('shift-all-page');
-    if (allPage) {
-        // ページが表示されたら初期化
-        allPage.addEventListener('show', () => {
-            updateAllPeriodDisplay();
-            loadAllShiftSubmissions();
-        });
-    }
-});
-let currentPeriod = getPeriodStart(new Date());
-let currentManagePeriod = getPeriodStart(new Date());
+// グローバル変数の宣言（後で初期化）
+let currentPeriod;
+let currentManagePeriod;
+let currentAllPeriod;
 
 // 半月期間の開始日を取得（1日または16日）
 function getPeriodStart(date) {
@@ -923,3 +823,102 @@ function showMessage(element, message, type) {
         element.classList.remove('show');
     }, 5000);
 }
+
+// --- シフト希望一覧（全員分）表示用 ---
+function updateAllPeriodDisplay() {
+    const display = document.getElementById('all-week-display');
+    if (!display) return;
+    const endDate = getPeriodEnd(currentAllPeriod);
+    display.textContent = `${formatDate(currentAllPeriod)} 〜 ${formatDate(endDate)}`;
+}
+
+function changeAllWeek(offset) {
+    if (offset > 0) {
+        const day = currentAllPeriod.getDate();
+        if (day === 1) {
+            currentAllPeriod.setDate(16);
+        } else {
+            currentAllPeriod.setMonth(currentAllPeriod.getMonth() + 1);
+            currentAllPeriod.setDate(1);
+        }
+    } else {
+        const day = currentAllPeriod.getDate();
+        if (day === 16) {
+            currentAllPeriod.setDate(1);
+        } else {
+            currentAllPeriod.setMonth(currentAllPeriod.getMonth() - 1);
+            currentAllPeriod.setDate(16);
+        }
+    }
+    updateAllPeriodDisplay();
+    loadAllShiftSubmissions();
+}
+
+async function loadAllShiftSubmissions() {
+    const container = document.getElementById('all-shifts-container');
+    if (!container) return;
+    const periodStart = formatDate(currentAllPeriod);
+    try {
+        const response = await fetch(`api/shift.php?action=get_all_submissions&period_start=${periodStart}`);
+        const data = await response.json();
+        if (data.success) {
+            displayAllShiftSubmissions(container, data.submissions, new Date(periodStart));
+        } else {
+            container.innerHTML = '<p>シフト提出の読み込みに失敗しました</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p>通信エラーが発生しました</p>';
+    }
+}
+
+function displayAllShiftSubmissions(container, submissions, periodStart) {
+    if (submissions.length === 0) {
+        container.innerHTML = '<p>この期間のシフト提出はまだありません</p>';
+        return;
+    }
+    const dates = getPeriodDates(periodStart);
+    // ユーザーごとにグループ化
+    const submissionsByUser = {};
+    submissions.forEach(sub => {
+        if (!submissionsByUser[sub.user_name]) {
+            submissionsByUser[sub.user_name] = {
+                user_id: sub.user_id,
+                dates: {}
+            };
+        }
+        submissionsByUser[sub.user_name].dates[sub.shift_date] = sub;
+    });
+    // テーブル生成
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>名前</th>';
+    dates.forEach(date => {
+        const dayOfWeek = date.getDay();
+        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    for (const [userName, userData] of Object.entries(submissionsByUser)) {
+        html += `<tr><td><strong>${userName}</strong></td>`;
+        dates.forEach(date => {
+            const dateStr = formatDate(date);
+            const day = userData.dates[dateStr];
+            html += '<td>';
+            if (day && day.is_available) {
+                html += `<div class="shift-submission">${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}</div>`;
+            } else {
+                html += '<span style="color: #999;">×</span>';
+            }
+            html += '</td>';
+        });
+        html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// 初期化処理
+document.addEventListener('DOMContentLoaded', () => {
+    // グローバル変数の初期化
+    currentPeriod = getPeriodStart(new Date());
+    currentManagePeriod = getPeriodStart(new Date());
+    currentAllPeriod = getPeriodStart(new Date());
+});
