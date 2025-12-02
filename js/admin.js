@@ -373,11 +373,11 @@ function renderManualShiftForm() {
             </div>
             <div>
                 <label>開始時刻</label>
-                ${createTimeSelect('09:00').replace('class="time-select"', `class="time-select start-time" data-row="${rowId}"`)}
+                <input type="time" class="start-time" data-row="${rowId}" value="09:00" step="900">
             </div>
             <div>
                 <label>終了時刻</label>
-                ${createTimeSelect('18:00').replace('class="time-select"', `class="time-select end-time" data-row="${rowId}"`)}
+                <input type="time" class="end-time" data-row="${rowId}" value="18:00" step="900">
             </div>
             <div>
                 <button type="button" class="remove-shift-btn" onclick="removeManualShiftRow(${rowId})">削除</button>
@@ -636,11 +636,11 @@ function renderManualDailyForm() {
             </div>
             <div>
                 <label>開始時刻</label>
-                ${createTimeSelect('09:00').replace('class="time-select"', `class="time-select start-time-daily" data-row="${rowId}"`)}
+                <input type="time" class="start-time-daily" data-row="${rowId}" value="09:00" step="900">
             </div>
             <div>
                 <label>終了時刻</label>
-                ${createTimeSelect('18:00').replace('class="time-select"', `class="time-select end-time-daily" data-row="${rowId}"`)}
+                <input type="time" class="end-time-daily" data-row="${rowId}" value="18:00" step="900">
             </div>
             <div>
                 <button type="button" class="remove-shift-btn" onclick="removeManualDailyRow(${rowId})">削除</button>
