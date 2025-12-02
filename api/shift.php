@@ -1,3 +1,17 @@
+<?php
+header('Content-Type: application/json');
+require_once '../config/db.php';
+
+session_start();
+
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['success' => false, 'message' => 'ログインしてください']);
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$action = $_GET['action'] ?? '';
+
 // 全ユーザーのシフト提出を取得（半月ごと）
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
     $period_start = $_GET['period_start'] ?? '';
@@ -17,19 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
     echo json_encode(['success' => true, 'submissions' => $submissions]);
     exit;
 }
-<?php
-header('Content-Type: application/json');
-require_once '../config/db.php';
-
-session_start();
-
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'message' => 'ログインしてください']);
-    exit;
-}
-
-$user_id = $_SESSION['user_id'];
-$action = $_GET['action'] ?? '';
 
 // シフト提出（半月ごと）
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
