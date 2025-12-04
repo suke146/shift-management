@@ -4,19 +4,34 @@ require_once 'config/db.php';
 
 echo "<h2>データベース確認</h2>";
 
+// テーブル構造を確認
+echo "<h3>Users テーブル構造:</h3>";
+try {
+    $result = $pdo->query("PRAGMA table_info(users)");
+    $columns = $result->fetchAll();
+    echo "<pre>";
+    foreach ($columns as $col) {
+        echo "{$col['name']} ({$col['type']}) - nullable: " . ($col['notnull'] ? 'NO' : 'YES') . "\n";
+    }
+    echo "</pre>";
+} catch (PDOException $e) {
+    echo "<p>エラー: " . $e->getMessage() . "</p>";
+}
+
 // ユーザー一覧を表示
 echo "<h3>ユーザー一覧:</h3>";
 try {
-    $stmt = $pdo->query("SELECT id, name, email, role FROM users");
+    $stmt = $pdo->query("SELECT id, name, nickname, email, role FROM users");
     $users = $stmt->fetchAll();
     
     if (count($users) > 0) {
         echo "<table border='1' style='border-collapse: collapse; padding: 5px;'>";
-        echo "<tr><th>ID</th><th>名前</th><th>メール</th><th>ロール</th></tr>";
+        echo "<tr><th>ID</th><th>名前</th><th>ニックネーム</th><th>メール</th><th>ロール</th></tr>";
         foreach ($users as $user) {
             echo "<tr>";
             echo "<td>{$user['id']}</td>";
             echo "<td>{$user['name']}</td>";
+            echo "<td>" . ($user['nickname'] ?? '-') . "</td>";
             echo "<td>{$user['email']}</td>";
             echo "<td>{$user['role']}</td>";
             echo "</tr>";
