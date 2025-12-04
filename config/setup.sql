@@ -41,8 +41,9 @@ CREATE TABLE IF NOT EXISTS final_shifts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     shift_date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
+    start_time TIME NULL, -- 休みの場合はNULL
+    end_time TIME NULL,   -- 休みの場合はNULL
+    is_day_off INTEGER DEFAULT 0, -- 休み: 1, 勤務: 0
     created_by INTEGER NOT NULL, -- 作成した管理者のID
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

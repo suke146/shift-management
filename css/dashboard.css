@@ -312,7 +312,7 @@ table tr:hover {
 
 .shift-builder-row {
     display: grid;
-    grid-template-columns: 1fr 1.5fr 1fr 1fr auto;
+    grid-template-columns: 1fr 1.5fr 0.8fr 1fr 1fr auto;
     gap: 15px;
     align-items: end;
     background: white;

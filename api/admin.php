@@ -123,18 +123,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create_final_shifts') 
         
         // SQLiteではUPSERT構文を使用
         $stmt = $pdo->prepare("
-            INSERT INTO final_shifts (user_id, shift_date, start_time, end_time, created_by) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO final_shifts (user_id, shift_date, start_time, end_time, is_day_off, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, shift_date) 
-            DO UPDATE SET start_time = excluded.start_time, end_time = excluded.end_time, updated_at = CURRENT_TIMESTAMP
+            DO UPDATE SET start_time = excluded.start_time, end_time = excluded.end_time, is_day_off = excluded.is_day_off, updated_at = CURRENT_TIMESTAMP
         ");
         
         foreach ($shifts as $shift) {
+            $is_day_off = isset($shift['is_day_off']) && $shift['is_day_off'] ? 1 : 0;
+            $start_time = $is_day_off ? null : ($shift['start_time'] ?? null);
+            $end_time = $is_day_off ? null : ($shift['end_time'] ?? null);
+            
             $stmt->execute([
                 $shift['user_id'],
                 $shift['shift_date'],
-                $shift['start_time'],
-                $shift['end_time'],
+                $start_time,
+                $end_time,
+                $is_day_off,
                 $admin_id
             ]);
         }

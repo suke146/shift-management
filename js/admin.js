@@ -185,8 +185,9 @@ async function loadExistingFinalShifts() {
                 id: shift.id,
                 date: shift.shift_date,
                 userId: shift.user_id,
-                startTime: shift.start_time.substring(0, 5),
-                endTime: shift.end_time.substring(0, 5)
+                isDayOff: shift.is_day_off ? true : false,
+                startTime: shift.start_time ? shift.start_time.substring(0, 5) : '09:00',
+                endTime: shift.end_time ? shift.end_time.substring(0, 5) : '18:00'
             }));
         } else {
             console.log('No existing shifts found');
@@ -227,7 +228,8 @@ function renderShiftBuilder() {
     } else {
         shiftBuilderRows.forEach((row, index) => {
             const isExisting = row.id ? true : false;
-            html += `<div class="shift-builder-row ${isExisting ? 'existing-shift' : ''}">
+            const isDayOff = row.isDayOff || false;
+            html += `<div class="shift-builder-row ${isExisting ? 'existing-shift' : ''}" data-index="${index}">
                 <div class="form-group">
                     <label>日付 ${isExisting ? '<span class="badge" style="background: #28a745; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 5px;">保存済み</span>' : ''}</label>
                     <select class="shift-date" data-index="${index}">
@@ -250,10 +252,17 @@ function renderShiftBuilder() {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>勤務/休み</label>
+                    <select class="shift-type" data-index="${index}">
+                        <option value="work" ${!isDayOff ? 'selected' : ''}>勤務</option>
+                        <option value="off" ${isDayOff ? 'selected' : ''}>休み</option>
+                    </select>
+                </div>
+                <div class="form-group time-input" style="${isDayOff ? 'display: none;' : ''}">
                     <label>開始時刻</label>
                     <input type="time" class="shift-start" data-index="${index}" value="${row.startTime || '09:00'}" step="900">
                 </div>
-                <div class="form-group">
+                <div class="form-group time-input" style="${isDayOff ? 'display: none;' : ''}">
                     <label>終了時刻</label>
                     <input type="time" class="shift-end" data-index="${index}" value="${row.endTime || '18:00'}" step="900">
                 </div>
@@ -276,6 +285,22 @@ function setupShiftBuilderListeners() {
     document.querySelectorAll('.shift-date, .shift-user, .shift-start, .shift-end').forEach(el => {
         el.addEventListener('change', updateShiftBuilderData);
     });
+    
+    // 勤務/休み選択時の処理
+    document.querySelectorAll('.shift-type').forEach(el => {
+        el.addEventListener('change', function() {
+            const index = this.dataset.index;
+            const row = document.querySelector(`.shift-builder-row[data-index="${index}"]`);
+            const timeInputs = row.querySelectorAll('.time-input');
+            const isDayOff = this.value === 'off';
+            
+            timeInputs.forEach(input => {
+                input.style.display = isDayOff ? 'none' : '';
+            });
+            
+            updateShiftBuilderData();
+        });
+    });
 }
 
 // シフトビルダーのデータを更新
@@ -283,11 +308,13 @@ function updateShiftBuilderData() {
     shiftBuilderRows.forEach((row, index) => {
         const dateEl = document.querySelector(`.shift-date[data-index="${index}"]`);
         const userEl = document.querySelector(`.shift-user[data-index="${index}"]`);
+        const typeEl = document.querySelector(`.shift-type[data-index="${index}"]`);
         const startEl = document.querySelector(`.shift-start[data-index="${index}"]`);
         const endEl = document.querySelector(`.shift-end[data-index="${index}"]`);
         
         if (dateEl) row.date = dateEl.value;
         if (userEl) row.userId = userEl.value;
+        if (typeEl) row.isDayOff = typeEl.value === 'off';
         if (startEl) row.startTime = startEl.value;
         if (endEl) row.endTime = endEl.value;
     });
@@ -299,6 +326,7 @@ function addShiftBuilderRow() {
     shiftBuilderRows.push({
         date: formatDate(dates[0]),
         userId: '',
+        isDayOff: false,
         startTime: '09:00',
         endTime: '18:00'
     });
@@ -371,8 +399,9 @@ async function saveFinalShifts() {
     const shifts = validShifts.map(row => ({
         user_id: parseInt(row.userId),
         shift_date: row.date,
-        start_time: row.startTime,
-        end_time: row.endTime
+        is_day_off: row.isDayOff || false,
+        start_time: row.isDayOff ? null : row.startTime,
+        end_time: row.isDayOff ? null : row.endTime
     }));
     
     const messageDiv = document.getElementById('manage-message');
