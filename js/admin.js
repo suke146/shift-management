@@ -17,6 +17,7 @@ async function initShiftManage() {
     updateManagePeriodDisplay();
     loadSubmissionsForReference();
     await loadAllUsersForShiftBuilder();
+    await loadExistingFinalShifts();
     initShiftBuilder();
 }
 
@@ -52,7 +53,8 @@ function changeManageWeek(offset) {
     
     updateManagePeriodDisplay();
     loadSubmissionsForReference();
-    loadAllUsersForShiftBuilder().then(() => {
+    loadAllUsersForShiftBuilder().then(async () => {
+        await loadExistingFinalShifts();
         initShiftBuilder();
     });
 }
@@ -168,6 +170,32 @@ async function loadAllUsersForShiftBuilder() {
     }
 }
 
+// 既存の確定シフトを読み込み
+async function loadExistingFinalShifts() {
+    const periodStart = formatDate(currentManagePeriod);
+    
+    try {
+        const response = await fetch(`api/admin.php?action=get_final_shifts&period_start=${periodStart}`);
+        const data = await response.json();
+        
+        if (data.success && data.shifts.length > 0) {
+            console.log('Loaded existing shifts:', data.shifts.length);
+            // 既存のシフトをshiftBuilderRowsに変換
+            shiftBuilderRows = data.shifts.map(shift => ({
+                id: shift.id,
+                date: shift.shift_date,
+                userId: shift.user_id,
+                startTime: shift.start_time.substring(0, 5),
+                endTime: shift.end_time.substring(0, 5)
+            }));
+        } else {
+            console.log('No existing shifts found');
+        }
+    } catch (error) {
+        console.error('既存シフト読み込みエラー:', error);
+    }
+}
+
 // シフトビルダーの初期化
 let shiftBuilderRows = [];
 function initShiftBuilder() {
@@ -198,9 +226,10 @@ function renderShiftBuilder() {
         html += '<p class="no-shifts">シフトを追加してください</p>';
     } else {
         shiftBuilderRows.forEach((row, index) => {
-            html += `<div class="shift-builder-row">
+            const isExisting = row.id ? true : false;
+            html += `<div class="shift-builder-row ${isExisting ? 'existing-shift' : ''}">
                 <div class="form-group">
-                    <label>日付</label>
+                    <label>日付 ${isExisting ? '<span class="badge" style="background: #28a745; color: white; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-left: 5px;">保存済み</span>' : ''}</label>
                     <select class="shift-date" data-index="${index}">
                         ${dates.map(d => {
                             const dateStr = formatDate(d);
@@ -228,7 +257,7 @@ function renderShiftBuilder() {
                     <label>終了時刻</label>
                     <input type="time" class="shift-end" data-index="${index}" value="${row.endTime || '18:00'}" step="900">
                 </div>
-                <button type="button" class="btn btn-danger btn-sm" onclick="removeShiftBuilderRow(${index})">削除</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeShiftBuilderRow(${index})">${isExisting ? '削除して保存' : '削除'}</button>
             </div>`;
         });
     }
@@ -277,7 +306,38 @@ function addShiftBuilderRow() {
 }
 
 // シフトビルダーから行を削除
-function removeShiftBuilderRow(index) {
+async function removeShiftBuilderRow(index) {
+    const row = shiftBuilderRows[index];
+    
+    // 既存のシフトの場合は削除確認
+    if (row.id) {
+        const userName = allUsers.find(u => u.id == row.userId)?.name || '';
+        if (!confirm(`${userName}さんの${row.date}のシフトを削除しますか？`)) {
+            return;
+        }
+        
+        // サーバーから削除
+        try {
+            const response = await fetch('api/admin.php?action=delete_final_shift', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ shift_id: row.id })
+            });
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                alert('削除に失敗しました: ' + data.message);
+                return;
+            }
+        } catch (error) {
+            alert('通信エラーが発生しました');
+            return;
+        }
+    }
+    
     shiftBuilderRows.splice(index, 1);
     renderShiftBuilder();
 }

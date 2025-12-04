@@ -148,5 +148,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create_final_shifts') 
     exit;
 }
 
+// 確定シフト取得（期間指定）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_final_shifts') {
+    $period_start = $_GET['period_start'] ?? '';
+    
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+    
+    // 期間の終了日を計算
+    $start_date = new DateTime($period_start);
+    $day = (int)$start_date->format('d');
+    if ($day === 1) {
+        $end_date = clone $start_date;
+        $end_date->setDate((int)$end_date->format('Y'), (int)$end_date->format('m'), 15);
+    } else {
+        $end_date = clone $start_date;
+        $end_date->modify('last day of this month');
+    }
+    
+    $stmt = $pdo->prepare("
+        SELECT fs.*, u.name as user_name
+        FROM final_shifts fs
+        JOIN users u ON fs.user_id = u.id
+        WHERE fs.shift_date >= ? AND fs.shift_date <= ?
+        ORDER BY fs.shift_date, u.name
+    ");
+    $stmt->execute([$period_start, $end_date->format('Y-m-d')]);
+    $shifts = $stmt->fetchAll();
+    
+    echo json_encode(['success' => true, 'shifts' => $shifts]);
+    exit;
+}
+
+// 確定シフト削除
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_final_shift') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $shift_id = $data['shift_id'] ?? 0;
+    
+    $stmt = $pdo->prepare("DELETE FROM final_shifts WHERE id = ?");
+    $stmt->execute([$shift_id]);
+    
+    if ($stmt->rowCount() > 0) {
+        echo json_encode(['success' => true, 'message' => 'シフトを削除しました']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'シフトが見つかりませんでした']);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => '無効なリクエストです']);
 ?>
