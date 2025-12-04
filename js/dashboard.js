@@ -11,9 +11,13 @@ async function showPage(pageName) {
     
     // ページに応じた初期化処理
     if (pageName === 'shift-submit') {
-        await initShiftSubmit();
+        if (typeof initShiftSubmit === 'function') {
+            await initShiftSubmit();
+        }
     } else if (pageName === 'shift-view') {
-        initShiftView();
+        if (typeof initShiftView === 'function') {
+            initShiftView();
+        }
     } else if (pageName === 'shift-all') {
         // シフト希望一覧ページの初期化
         if (typeof updateAllPeriodDisplay === 'function') updateAllPeriodDisplay();
@@ -21,10 +25,14 @@ async function showPage(pageName) {
     } else if (pageName === 'shift-manage') {
         if (typeof initShiftManage === 'function') {
             await initShiftManage();
+        } else {
+            console.error('initShiftManage is not defined - admin.js may not be loaded');
         }
     } else if (pageName === 'user-manage') {
         if (typeof loadUsers === 'function') {
             loadUsers();
+        } else {
+            console.error('loadUsers is not defined - admin.js may not be loaded');
         }
     }
 }
@@ -70,6 +78,9 @@ function switchManageTab(tabName) {
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Dashboard initialized');
+    console.log('initShiftSubmit available:', typeof initShiftSubmit);
+    console.log('initShiftManage available:', typeof initShiftManage);
+    console.log('loadUsers available:', typeof loadUsers);
     
     // 最初のページ（シフト提出）を初期化
     const activePage = document.querySelector('.page.active');
@@ -78,16 +89,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Active page:', pageId);
         
         if (pageId === 'shift-submit-page') {
-            await initShiftSubmit();
+            if (typeof initShiftSubmit === 'function') {
+                await initShiftSubmit();
+            }
         } else if (pageId === 'shift-view-page') {
-            initShiftView();
-        } else if (pageId === 'shift-manage-page' && typeof initShiftManage === 'function') {
-            await initShiftManage();
-        } else if (pageId === 'user-manage-page' && typeof loadUsers === 'function') {
-            loadUsers();
+            if (typeof initShiftView === 'function') {
+                initShiftView();
+            }
+        } else if (pageId === 'shift-manage-page') {
+            if (typeof initShiftManage === 'function') {
+                await initShiftManage();
+            } else {
+                console.error('initShiftManage not available');
+            }
+        } else if (pageId === 'user-manage-page') {
+            if (typeof loadUsers === 'function') {
+                loadUsers();
+            } else {
+                console.error('loadUsers not available');
+            }
         }
     } else {
         // デフォルト
-        await initShiftSubmit();
+        if (typeof initShiftSubmit === 'function') {
+            await initShiftSubmit();
+        }
     }
 });

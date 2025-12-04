@@ -487,7 +487,6 @@ async function deleteUser(userId, userName) {
 // 手動シフト作成の初期化
 let currentManualPeriod = getPeriodStart(new Date());
 let manualShiftRows = [];
-let allUsers = [];
 
 async function initManualShiftCreation() {
     updateManualPeriodDisplay();
