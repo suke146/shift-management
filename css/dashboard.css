@@ -206,6 +206,29 @@ table tr:hover {
     background: var(--success-color);
 }
 
+.shift-submission {
+    background: #f0f8ff;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.submission-note {
+    background: #fffacd;
+    padding: 4px 6px;
+    margin-top: 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    color: #666;
+    border-left: 3px solid #ffd700;
+}
+
+.assign-shift {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
 .user-card {
     border: 1px solid var(--border-color);
     padding: 15px;

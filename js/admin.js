@@ -116,27 +116,19 @@ function displaySubmissions(container, submissions, periodStart) {
                     ${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - 
                     ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}
                     <br>
-                    <input type="checkbox" class="assign-shift" 
-                        data-user-id="${userData.user_id}"
-                        data-date="${dateStr}"
-                        data-start="${day.start_time}"
-                        data-end="${day.end_time}">
-                    採用
+                    <label style="cursor: pointer; display: block; margin-top: 5px;">
+                        <input type="checkbox" class="assign-shift" 
+                            data-user-id="${userData.user_id}"
+                            data-user-name="${escapeHtml(userName)}"
+                            data-date="${dateStr}"
+                            data-start="${day.start_time}"
+                            data-end="${day.end_time}"
+                            style="margin-right: 5px;">
+                        <span style="font-size: 12px;">シフト採用</span>
+                    </label>
                 </div>`;
                 if (day && day.note) {
-                    html += `<div class="submission-note">${escapeHtml(day.note)}</div>`;
-                }
-
-                // 承認ボタン
-                if (day && day.status) {
-                    if (day.status === 'pending') {
-                        html += `<div class="submission-actions">
-                            <button class="btn btn-sm btn-success" onclick="updateSubmissionStatus(${userData.user_id}, '${dateStr}', '${formatDate(new Date(periodStart))}', 'approved')">承認</button>
-                            <button class="btn btn-sm btn-danger" onclick="updateSubmissionStatus(${userData.user_id}, '${dateStr}', '${formatDate(new Date(periodStart))}', 'rejected')">却下</button>
-                        </div>`;
-                    } else {
-                        html += `<div class="submission-status">${day.status}</div>`;
-                    }
+                    html += `<div class="submission-note" style="font-size: 11px; color: #666; margin-top: 3px;">${escapeHtml(day.note)}</div>`;
                 }
             } else {
                 html += '<span style="color: #999;">×</span>';
@@ -158,6 +150,15 @@ async function createFinalShift() {
     
     if (checkboxes.length === 0) {
         alert('シフトを選択してください');
+        return;
+    }
+    
+    // 選択されたシフトの概要を表示
+    const shiftCount = checkboxes.length;
+    const userNames = [...new Set(Array.from(checkboxes).map(cb => cb.dataset.userName))];
+    const summary = `${shiftCount}件のシフトを確定します。\n対象メンバー: ${userNames.join(', ')}`;
+    
+    if (!confirm(summary + '\n\nよろしいですか？')) {
         return;
     }
     
@@ -187,12 +188,15 @@ async function createFinalShift() {
         
         if (data.success) {
             showMessage(messageDiv, data.message, 'success');
+            // チェックボックスをクリア
+            checkboxes.forEach(cb => cb.checked = false);
             loadAllSubmissions(); // リロード
         } else {
             showMessage(messageDiv, data.message, 'error');
         }
     } catch (error) {
-        showMessage(messageDiv, '通信エラーが発生しました', 'error');
+        console.error('Error creating shifts:', error);
+        showMessage(messageDiv, '通信エラーが発生しました: ' + error.message, 'error');
     }
 }
 

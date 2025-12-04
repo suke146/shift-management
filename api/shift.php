@@ -88,11 +88,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions_pub
         exit;
     }
 
-    $stmt = $pdo->prepare("\n        SELECT ss.*, u.name as user_name, u.nickname as user_nickname\n        FROM shift_submissions ss\n        JOIN users u ON ss.user_id = u.id\n        WHERE ss.period_start = ?\n        ORDER BY u.name, ss.shift_date\n    ");
-    $stmt->execute([$period_start]);
-    $submissions = $stmt->fetchAll();
+    try {
+        $stmt = $pdo->prepare("
+            SELECT ss.*, u.name as user_name, u.nickname as user_nickname
+            FROM shift_submissions ss
+            JOIN users u ON ss.user_id = u.id
+            WHERE ss.period_start = ?
+            ORDER BY u.name, ss.shift_date
+        ");
+        $stmt->execute([$period_start]);
+        $submissions = $stmt->fetchAll();
 
-    echo json_encode(['success' => true, 'submissions' => $submissions]);
+        echo json_encode(['success' => true, 'submissions' => $submissions]);
+    } catch (PDOException $e) {
+        error_log("Error fetching submissions: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'データ取得エラー: ' . $e->getMessage()]);
+    }
     exit;
 }
 

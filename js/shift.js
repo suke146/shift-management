@@ -244,10 +244,11 @@ async function loadFinalShifts() {
         if (data.success) {
             displayShiftTable(container, data.shifts, new Date(periodStart));
         } else {
-            container.innerHTML = '<p>シフトの読み込みに失敗しました</p>';
+            container.innerHTML = `<p>シフトの読み込みに失敗しました: ${data.message || ''}</p>`;
         }
     } catch (error) {
-        container.innerHTML = '<p>通信エラーが発生しました</p>';
+        console.error('Error loading final shifts:', error);
+        container.innerHTML = `<p>通信エラーが発生しました: ${error.message}</p>`;
     }
 }
 
@@ -313,10 +314,11 @@ async function loadAllSubmissionsPublic() {
         if (data.success) {
             displayPublicSubmissions(container, data.submissions, new Date(periodStart));
         } else {
-            container.innerHTML = '<p>提出状況の読み込みに失敗しました</p>';
+            container.innerHTML = `<p>提出状況の読み込みに失敗しました: ${data.message || ''}</p>`;
         }
     } catch (error) {
-        container.innerHTML = '<p>通信エラーが発生しました</p>';
+        console.error('Error loading submissions:', error);
+        container.innerHTML = `<p>通信エラーが発生しました: ${error.message}</p>`;
     }
 }
 
