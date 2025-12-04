@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions_pub
 
     try {
         $stmt = $pdo->prepare("
-            SELECT ss.*, u.name as user_name, u.nickname as user_nickname
+            SELECT ss.*, u.name as user_name
             FROM shift_submissions ss
             JOIN users u ON ss.user_id = u.id
             WHERE ss.period_start = ?
