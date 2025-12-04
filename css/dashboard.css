@@ -125,13 +125,33 @@
 .shift-day-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 15px;
     margin-bottom: 10px;
 }
 
-.shift-day-header label {
+.shift-day-header .date-label {
     font-weight: 600;
-    min-width: 80px;
+    min-width: 120px;
+}
+
+.shift-type-selector {
+    display: flex;
+    gap: 15px;
+}
+
+.shift-type-selector label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.shift-type-radio {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
 }
 
 .shift-day-times {

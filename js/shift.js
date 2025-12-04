@@ -72,7 +72,7 @@ function createTimeInput(defaultValue = '09:00') {
 }
 
 // シフト提出の初期化
-function initShiftSubmit() {
+async function initShiftSubmit() {
     const periodInput = document.getElementById('shift-week');
     const container = document.getElementById('shift-days-container');
     
@@ -81,13 +81,60 @@ function initShiftSubmit() {
     periodInput.value = formatDate(periodStart);
     
     // 日付ごとの入力欄を生成
-    generateShiftDays(container, periodStart);
+    await generateShiftDays(container, periodStart);
+    
+    // 既存のシフトデータを読み込み
+    await loadExistingShiftData(periodStart);
     
     // 期間変更時のイベント
-    periodInput.addEventListener('change', function() {
+    periodInput.addEventListener('change', async function() {
         const newPeriod = getPeriodStart(new Date(this.value));
-        generateShiftDays(container, newPeriod);
+        await generateShiftDays(container, newPeriod);
+        await loadExistingShiftData(newPeriod);
     });
+}
+
+// 既存のシフトデータを読み込んで復元
+async function loadExistingShiftData(periodStart) {
+    const periodStartStr = formatDate(periodStart);
+    
+    try {
+        const response = await fetch(`api/shift.php?action=get_my_submissions&period_start=${periodStartStr}`);
+        const data = await response.json();
+        
+        if (data.success && data.shifts.length > 0) {
+            data.shifts.forEach(shift => {
+                const index = getPeriodDates(periodStart).findIndex(d => formatDate(d) === shift.shift_date);
+                if (index >= 0) {
+                    // ラジオボタンの設定
+                    const radioWork = document.querySelector(`.shift-type-radio[data-index="${index}"][value="work"]`);
+                    const radioOff = document.querySelector(`.shift-type-radio[data-index="${index}"][value="off"]`);
+                    
+                    if (shift.is_available) {
+                        if (radioWork) radioWork.checked = true;
+                        // 時刻を設定
+                        const startInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="start"] input`);
+                        const endInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="end"] input`);
+                        if (startInput && shift.start_time) startInput.value = shift.start_time.substring(0, 5);
+                        if (endInput && shift.end_time) endInput.value = shift.end_time.substring(0, 5);
+                    } else {
+                        if (radioOff) {
+                            radioOff.checked = true;
+                            // 時刻入力欄を非表示
+                            const timesDiv = document.getElementById(`times-${index}`);
+                            if (timesDiv) timesDiv.style.display = 'none';
+                        }
+                    }
+                    
+                    // メモを設定
+                    const noteEl = document.querySelector(`.day-note[data-index="${index}"]`);
+                    if (noteEl && shift.note) noteEl.value = shift.note;
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading existing shift data:', error);
+    }
 }
 
 // シフト日の入力欄を生成（半月分）
@@ -102,10 +149,17 @@ function generateShiftDays(container, periodStart) {
         dayDiv.className = 'shift-day';
         dayDiv.innerHTML = `
             <div class="shift-day-header">
-                <label>
-                    <input type="checkbox" class="availability-check" data-index="${index}" checked>
-                    ${formatDate(date)} (${dayNames[dayOfWeek]})
-                </label>
+                <span class="date-label">${formatDate(date)} (${dayNames[dayOfWeek]})</span>
+                <div class="shift-type-selector">
+                    <label>
+                        <input type="radio" name="shift-type-${index}" class="shift-type-radio" data-index="${index}" value="work" checked>
+                        勤務
+                    </label>
+                    <label>
+                        <input type="radio" name="shift-type-${index}" class="shift-type-radio" data-index="${index}" value="off">
+                        休み
+                    </label>
+                </div>
             </div>
             <div class="shift-day-times" id="times-${index}">
                 <div class="form-group">
@@ -122,19 +176,25 @@ function generateShiftDays(container, periodStart) {
                 </div>
                 <div class="form-group">
                     <label>メモ（任意）</label>
-                    <textarea class="day-note" data-index="${index}" placeholder="その日のメモや備考を入力"></textarea>
+                    <textarea class="day-note" data-index="${index}" placeholder="休み希望理由や備考を入力"></textarea>
                 </div>
             </div>
         `;
         
         container.appendChild(dayDiv);
         
-        // チェックボックスのイベント
-        const checkbox = dayDiv.querySelector('.availability-check');
+        // ラジオボタンのイベント
+        const radioButtons = dayDiv.querySelectorAll('.shift-type-radio');
         const timesDiv = dayDiv.querySelector('.shift-day-times');
         
-        checkbox.addEventListener('change', function() {
-            timesDiv.style.display = this.checked ? 'grid' : 'none';
+        radioButtons.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'work') {
+                    timesDiv.style.display = 'grid';
+                } else {
+                    timesDiv.style.display = 'none';
+                }
+            });
         });
     });
 }
@@ -153,16 +213,17 @@ async function submitShift(event) {
     // シフトデータを収集
     const shifts = [];
     dates.forEach((date, index) => {
-        const checkbox = document.querySelector(`.availability-check[data-index="${index}"]`);
+        const radioWork = document.querySelector(`.shift-type-radio[data-index="${index}"][value="work"]`);
+        const isWork = radioWork ? radioWork.checked : false;
         const startInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="start"] input`);
         const endInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="end"] input`);
         const noteEl = document.querySelector(`.day-note[data-index="${index}"]`);
         
         shifts.push({
             shift_date: formatDate(date),
-            is_available: checkbox.checked,
-            start_time: checkbox.checked ? startInput.value : null,
-            end_time: checkbox.checked ? endInput.value : null,
+            is_available: isWork,
+            start_time: isWork ? startInput.value : null,
+            end_time: isWork ? endInput.value : null,
             note: noteEl ? noteEl.value : null
         });
     });
