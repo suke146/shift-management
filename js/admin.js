@@ -172,6 +172,11 @@ async function loadAllUsersForShiftBuilder() {
 let shiftBuilderRows = [];
 function initShiftBuilder() {
     console.log('initShiftBuilder called, allUsers count:', allUsers.length);
+    const container = document.getElementById('shift-builder-container');
+    if (!container) {
+        console.error('shift-builder-container element not found in DOM!');
+        return;
+    }
     shiftBuilderRows = [];
     renderShiftBuilder();
 }

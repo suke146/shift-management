@@ -1,5 +1,5 @@
 // ページ切り替え
-function showPage(pageName) {
+async function showPage(pageName) {
     const pages = document.querySelectorAll('.page');
     const menuItems = document.querySelectorAll('.menu-item');
     
@@ -11,7 +11,7 @@ function showPage(pageName) {
     
     // ページに応じた初期化処理
     if (pageName === 'shift-submit') {
-        initShiftSubmit();
+        await initShiftSubmit();
     } else if (pageName === 'shift-view') {
         initShiftView();
     } else if (pageName === 'shift-all') {
@@ -19,9 +19,13 @@ function showPage(pageName) {
         if (typeof updateAllPeriodDisplay === 'function') updateAllPeriodDisplay();
         if (typeof loadAllShiftSubmissions === 'function') loadAllShiftSubmissions();
     } else if (pageName === 'shift-manage') {
-        initShiftManage();
+        if (typeof initShiftManage === 'function') {
+            await initShiftManage();
+        }
     } else if (pageName === 'user-manage') {
-        loadUsers();
+        if (typeof loadUsers === 'function') {
+            loadUsers();
+        }
     }
 }
 
@@ -64,7 +68,7 @@ function switchManageTab(tabName) {
 }
 
 // ページ読み込み時の初期化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('Dashboard initialized');
     
     // 最初のページ（シフト提出）を初期化
@@ -74,16 +78,16 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Active page:', pageId);
         
         if (pageId === 'shift-submit-page') {
-            initShiftSubmit();
+            await initShiftSubmit();
         } else if (pageId === 'shift-view-page') {
             initShiftView();
         } else if (pageId === 'shift-manage-page' && typeof initShiftManage === 'function') {
-            initShiftManage();
+            await initShiftManage();
         } else if (pageId === 'user-manage-page' && typeof loadUsers === 'function') {
             loadUsers();
         }
     } else {
         // デフォルト
-        initShiftSubmit();
+        await initShiftSubmit();
     }
 });
