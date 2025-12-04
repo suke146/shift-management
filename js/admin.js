@@ -328,3 +328,435 @@ async function deleteUser(userId, userName) {
         alert('通信エラーが発生しました');
     }
 }
+
+// 手動シフト作成の初期化
+let currentManualPeriod = getPeriodStart(new Date());
+let manualShiftRows = [];
+let allUsers = [];
+
+async function initManualShiftCreation() {
+    updateManualPeriodDisplay();
+    await loadAllUsers();
+    addManualShiftRow();
+}
+
+// 手動シフト期間の表示を更新
+function updateManualPeriodDisplay() {
+    const display = document.getElementById('manual-week-display');
+    const endDate = getPeriodEnd(currentManualPeriod);
+    
+    display.textContent = `${formatDate(currentManualPeriod)} 〜 ${formatDate(endDate)}`;
+}
+
+// 手動シフト期間を変更
+function changeManualWeek(offset) {
+    if (offset > 0) {
+        const day = currentManualPeriod.getDate();
+        if (day === 1) {
+            currentManualPeriod.setDate(16);
+        } else {
+            currentManualPeriod.setMonth(currentManualPeriod.getMonth() + 1);
+            currentManualPeriod.setDate(1);
+        }
+    } else {
+        const day = currentManualPeriod.getDate();
+        if (day === 16) {
+            currentManualPeriod.setDate(1);
+        } else {
+            currentManualPeriod.setMonth(currentManualPeriod.getMonth() - 1);
+            currentManualPeriod.setDate(16);
+        }
+    }
+    
+    updateManualPeriodDisplay();
+    manualShiftRows = [];
+    initManualShiftCreation();
+}
+
+// 全ユーザーを読み込み
+async function loadAllUsers() {
+    try {
+        const response = await fetch('api/admin.php?action=get_users');
+        const data = await response.json();
+        
+        if (data.success) {
+            allUsers = data.users;
+        }
+    } catch (error) {
+        console.error('ユーザー読み込みエラー:', error);
+    }
+}
+
+// 手動シフト行を追加
+function addManualShiftRow() {
+    const rowId = Date.now();
+    manualShiftRows.push(rowId);
+    renderManualShiftForm();
+}
+
+// 手動シフト行を削除
+function removeManualShiftRow(rowId) {
+    manualShiftRows = manualShiftRows.filter(id => id !== rowId);
+    renderManualShiftForm();
+}
+
+// 手動シフトフォームを描画
+function renderManualShiftForm() {
+    const container = document.getElementById('manual-shifts-container');
+    const dates = getPeriodDates(currentManualPeriod);
+    
+    let html = '<div class="manual-shift-form">';
+    
+    manualShiftRows.forEach(rowId => {
+        html += `<div class="shift-input-group">
+            <div>
+                <label>メンバー</label>
+                <select class="user-select" data-row="${rowId}">
+                    <option value="">選択してください</option>
+                    ${allUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+                </select>
+            </div>
+            <div>
+                <label>日付</label>
+                <select class="date-select" data-row="${rowId}">
+                    ${dates.map(d => {
+                        const dateStr = formatDate(d);
+                        const dayOfWeek = d.getDay();
+                        return `<option value="${dateStr}">${dateStr} (${dayNames[dayOfWeek]})</option>`;
+                    }).join('')}
+                </select>
+            </div>
+            <div>
+                <label>開始時刻</label>
+                <input type="time" class="start-time" data-row="${rowId}" value="09:00" step="900">
+            </div>
+            <div>
+                <label>終了時刻</label>
+                <input type="time" class="end-time" data-row="${rowId}" value="18:00" step="900">
+            </div>
+            <div>
+                <button type="button" class="remove-shift-btn" onclick="removeManualShiftRow(${rowId})">削除</button>
+            </div>
+        </div>`;
+    });
+    
+    html += `<button type="button" class="btn btn-secondary add-shift-row-btn" onclick="addManualShiftRow()">
+        + シフト行を追加
+    </button>`;
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+// 手動シフトを作成
+async function createManualShift() {
+    const shifts = [];
+    
+    manualShiftRows.forEach(rowId => {
+        const userSelect = document.querySelector(`.user-select[data-row="${rowId}"]`);
+        const dateSelect = document.querySelector(`.date-select[data-row="${rowId}"]`);
+        const startSelect = document.querySelector(`.start-time[data-row="${rowId}"]`);
+        const endSelect = document.querySelector(`.end-time[data-row="${rowId}"]`);
+        
+        if (userSelect.value && dateSelect.value) {
+            shifts.push({
+                user_id: parseInt(userSelect.value),
+                shift_date: dateSelect.value,
+                start_time: startSelect.value,
+                end_time: endSelect.value
+            });
+        }
+    });
+    
+    if (shifts.length === 0) {
+        alert('シフトを1件以上作成してください');
+        return;
+    }
+    
+    const messageDiv = document.getElementById('manual-message');
+    
+    try {
+        const response = await fetch('api/admin.php?action=create_final_shifts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ shifts: shifts })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(messageDiv, data.message, 'success');
+            manualShiftRows = [];
+            initManualShiftCreation();
+        } else {
+            showMessage(messageDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showMessage(messageDiv, '通信エラーが発生しました', 'error');
+    }
+}
+
+// === 提出済みシフトから作成（1日モード） ===
+let currentManageDay = new Date();
+
+function switchRequestsMode(mode) {
+    const halfMonthMode = document.getElementById('requests-half-month-mode');
+    const dailyMode = document.getElementById('requests-daily-mode');
+    
+    if (mode === 'half-month') {
+        halfMonthMode.classList.add('active');
+        dailyMode.classList.remove('active');
+        loadAllSubmissions();
+    } else {
+        halfMonthMode.classList.remove('active');
+        dailyMode.classList.add('active');
+        initDailyManagement();
+    }
+}
+
+function initDailyManagement() {
+    currentManageDay = new Date();
+    document.getElementById('manage-date-input').value = formatDate(currentManageDay);
+    loadDailySubmissions();
+}
+
+function changeManageDay(offset) {
+    currentManageDay.setDate(currentManageDay.getDate() + offset);
+    document.getElementById('manage-date-input').value = formatDate(currentManageDay);
+    loadDailySubmissions();
+}
+
+async function loadDailySubmissions() {
+    const dateInput = document.getElementById('manage-date-input');
+    currentManageDay = new Date(dateInput.value);
+    const container = document.getElementById('manage-daily-container');
+    const dateStr = formatDate(currentManageDay);
+    
+    try {
+        const response = await fetch(`api/admin.php?action=get_daily_submissions&date=${dateStr}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            displayDailySubmissions(container, data.submissions, dateStr);
+        } else {
+            container.innerHTML = '<p>データの読み込みに失敗しました</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p>通信エラーが発生しました</p>';
+    }
+}
+
+function displayDailySubmissions(container, submissions, dateStr) {
+    if (submissions.length === 0) {
+        container.innerHTML = '<p>この日の希望シフトはありません</p>';
+        return;
+    }
+    
+    const dayOfWeek = new Date(dateStr).getDay();
+    
+    let html = `<h3>${dateStr} (${dayNames[dayOfWeek]})</h3>`;
+    html += '<div class="daily-submissions">';
+    
+    submissions.forEach(sub => {
+        html += `<div class="daily-submission-card">
+            <div class="submission-info">
+                <strong>${sub.user_name}</strong>
+                ${sub.is_available ? 
+                    `<span class="time-badge">${sub.start_time.substring(0, 5)} - ${sub.end_time.substring(0, 5)}</span>` :
+                    '<span class="unavailable-badge">勤務不可</span>'
+                }
+            </div>
+            ${sub.is_available ? 
+                `<input type="checkbox" class="assign-daily-shift" 
+                    data-user-id="${sub.user_id}"
+                    data-date="${dateStr}"
+                    data-start="${sub.start_time}"
+                    data-end="${sub.end_time}">` :
+                ''
+            }
+        </div>`;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function createDailyFinalShift() {
+    const checkboxes = document.querySelectorAll('.assign-daily-shift:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('シフトを選択してください');
+        return;
+    }
+    
+    const shifts = [];
+    checkboxes.forEach(checkbox => {
+        shifts.push({
+            user_id: parseInt(checkbox.dataset.userId),
+            shift_date: checkbox.dataset.date,
+            start_time: checkbox.dataset.start,
+            end_time: checkbox.dataset.end
+        });
+    });
+    
+    const messageDiv = document.getElementById('manage-daily-message');
+    
+    try {
+        const response = await fetch('api/admin.php?action=create_final_shifts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ shifts: shifts })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(messageDiv, data.message, 'success');
+            loadDailySubmissions();
+        } else {
+            showMessage(messageDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showMessage(messageDiv, '通信エラーが発生しました', 'error');
+    }
+}
+
+// === メンバーから直接作成（1日モード） ===
+let currentManualDay = new Date();
+let manualDailyRows = [];
+
+function switchManualMode(mode) {
+    const halfMonthMode = document.getElementById('manual-half-month-mode');
+    const dailyMode = document.getElementById('manual-daily-mode');
+    
+    if (mode === 'half-month') {
+        halfMonthMode.classList.add('active');
+        dailyMode.classList.remove('active');
+        manualShiftRows = [];
+        initManualShiftCreation();
+    } else {
+        halfMonthMode.classList.remove('active');
+        dailyMode.classList.add('active');
+        initManualDailyCreation();
+    }
+}
+
+async function initManualDailyCreation() {
+    currentManualDay = new Date();
+    document.getElementById('manual-date-input').value = formatDate(currentManualDay);
+    await loadAllUsers();
+    manualDailyRows = [];
+    addManualDailyRow();
+}
+
+function changeManualDay(offset) {
+    currentManualDay.setDate(currentManualDay.getDate() + offset);
+    document.getElementById('manual-date-input').value = formatDate(currentManualDay);
+    renderManualDailyForm();
+}
+
+function addManualDailyRow() {
+    const rowId = Date.now();
+    manualDailyRows.push(rowId);
+    renderManualDailyForm();
+}
+
+function removeManualDailyRow(rowId) {
+    manualDailyRows = manualDailyRows.filter(id => id !== rowId);
+    renderManualDailyForm();
+}
+
+function renderManualDailyForm() {
+    const container = document.getElementById('manual-daily-container');
+    const dateInput = document.getElementById('manual-date-input');
+    currentManualDay = new Date(dateInput.value);
+    const dateStr = formatDate(currentManualDay);
+    const dayOfWeek = currentManualDay.getDay();
+    
+    let html = `<h3>${dateStr} (${dayNames[dayOfWeek]})</h3>`;
+    html += '<div class="manual-shift-form">';
+    
+    manualDailyRows.forEach(rowId => {
+        html += `<div class="shift-input-group daily-shift-group">
+            <div>
+                <label>メンバー</label>
+                <select class="user-select-daily" data-row="${rowId}">
+                    <option value="">選択してください</option>
+                    ${allUsers.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+                </select>
+            </div>
+            <div>
+                <label>開始時刻</label>
+                <input type="time" class="start-time-daily" data-row="${rowId}" value="09:00" step="900">
+            </div>
+            <div>
+                <label>終了時刻</label>
+                <input type="time" class="end-time-daily" data-row="${rowId}" value="18:00" step="900">
+            </div>
+            <div>
+                <button type="button" class="remove-shift-btn" onclick="removeManualDailyRow(${rowId})">削除</button>
+            </div>
+        </div>`;
+    });
+    
+    html += `<button type="button" class="btn btn-secondary add-shift-row-btn" onclick="addManualDailyRow()">
+        + スタッフを追加
+    </button>`;
+    html += '</div>';
+    
+    container.innerHTML = html;
+}
+
+async function createManualDailyShift() {
+    const dateInput = document.getElementById('manual-date-input');
+    const dateStr = dateInput.value;
+    const shifts = [];
+    
+    manualDailyRows.forEach(rowId => {
+        const userSelect = document.querySelector(`.user-select-daily[data-row="${rowId}"]`);
+        const startSelect = document.querySelector(`.start-time-daily[data-row="${rowId}"]`);
+        const endSelect = document.querySelector(`.end-time-daily[data-row="${rowId}"]`);
+        
+        if (userSelect && userSelect.value) {
+            shifts.push({
+                user_id: parseInt(userSelect.value),
+                shift_date: dateStr,
+                start_time: startSelect.value,
+                end_time: endSelect.value
+            });
+        }
+    });
+    
+    if (shifts.length === 0) {
+        alert('少なくとも1人のスタッフを追加してください');
+        return;
+    }
+    
+    const messageDiv = document.getElementById('manual-daily-message');
+    
+    try {
+        const response = await fetch('api/admin.php?action=create_final_shifts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ shifts: shifts })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showMessage(messageDiv, data.message, 'success');
+            manualDailyRows = [];
+            initManualDailyCreation();
+        } else {
+            showMessage(messageDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showMessage(messageDiv, '通信エラーが発生しました', 'error');
+    }
+}
