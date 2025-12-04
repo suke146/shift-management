@@ -12,11 +12,11 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-function initShiftManage() {
+async function initShiftManage() {
     console.log('initShiftManage called');
     updateManagePeriodDisplay();
     loadSubmissionsForReference();
-    loadAllUsersForShiftBuilder();
+    await loadAllUsersForShiftBuilder();
     initShiftBuilder();
 }
 
@@ -52,13 +52,18 @@ function changeManageWeek(offset) {
     
     updateManagePeriodDisplay();
     loadSubmissionsForReference();
-    loadAllUsersForShiftBuilder();
-    initShiftBuilder();
+    loadAllUsersForShiftBuilder().then(() => {
+        initShiftBuilder();
+    });
 }
 
 // 提出状況を参考情報として読み込み
 async function loadSubmissionsForReference() {
     const container = document.getElementById('manage-submissions-container');
+    if (!container) {
+        console.error('manage-submissions-container not found!');
+        return;
+    }
     const periodStart = formatDate(currentManagePeriod);
     
     try {
@@ -166,6 +171,7 @@ async function loadAllUsersForShiftBuilder() {
 // シフトビルダーの初期化
 let shiftBuilderRows = [];
 function initShiftBuilder() {
+    console.log('initShiftBuilder called, allUsers count:', allUsers.length);
     shiftBuilderRows = [];
     renderShiftBuilder();
 }
@@ -173,6 +179,12 @@ function initShiftBuilder() {
 // シフトビルダーを描画
 function renderShiftBuilder() {
     const container = document.getElementById('shift-builder-container');
+    if (!container) {
+        console.error('shift-builder-container not found!');
+        return;
+    }
+    console.log('renderShiftBuilder called, rows:', shiftBuilderRows.length, 'users:', allUsers.length);
+    
     const dates = getPeriodDates(currentManagePeriod);
     
     let html = '<div class="shift-builder">';
