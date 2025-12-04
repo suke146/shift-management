@@ -141,11 +141,11 @@
     margin-top: 10px;
 }
 
-.time-select-container {
+.time-input-container {
     width: 100%;
 }
 
-.time-select {
+.time-input {
     width: 100%;
     padding: 8px 12px;
     border: 1px solid var(--border-color);
@@ -155,7 +155,7 @@
     cursor: pointer;
 }
 
-.time-select:focus {
+.time-input:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);

@@ -26,8 +26,8 @@ if (isset($_SESSION['user_id'])) {
             <div id="login-tab" class="tab-content active">
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
-                        <label for="login-email">メールアドレス</label>
-                        <input type="email" id="login-email" name="email" required>
+                        <label for="login-email">メールアドレスまたはニックネーム</label>
+                        <input type="text" id="login-email" name="email" required>
                     </div>
                     <div class="form-group">
                         <label for="login-password">パスワード</label>
@@ -44,6 +44,10 @@ if (isset($_SESSION['user_id'])) {
                     <div class="form-group">
                         <label for="register-name">名前</label>
                         <input type="text" id="register-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-nickname">ニックネーム</label>
+                        <input type="text" id="register-nickname" name="nickname" required>
                     </div>
                     <div class="form-group">
                         <label for="register-email">メールアドレス</label>

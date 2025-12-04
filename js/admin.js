@@ -1,6 +1,17 @@
 // 管理者専用機能
 
 // シフト管理の初期化
+// HTML を安全に表示するためのエスケープ
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function initShiftManage() {
     updateManagePeriodDisplay();
     loadAllSubmissions();
@@ -112,6 +123,21 @@ function displaySubmissions(container, submissions, periodStart) {
                         data-end="${day.end_time}">
                     採用
                 </div>`;
+                if (day && day.note) {
+                    html += `<div class="submission-note">${escapeHtml(day.note)}</div>`;
+                }
+
+                // 承認ボタン
+                if (day && day.status) {
+                    if (day.status === 'pending') {
+                        html += `<div class="submission-actions">
+                            <button class="btn btn-sm btn-success" onclick="updateSubmissionStatus(${userData.user_id}, '${dateStr}', '${formatDate(new Date(periodStart))}', 'approved')">承認</button>
+                            <button class="btn btn-sm btn-danger" onclick="updateSubmissionStatus(${userData.user_id}, '${dateStr}', '${formatDate(new Date(periodStart))}', 'rejected')">却下</button>
+                        </div>`;
+                    } else {
+                        html += `<div class="submission-status">${day.status}</div>`;
+                    }
+                }
             } else {
                 html += '<span style="color: #999;">×</span>';
             }
@@ -236,6 +262,35 @@ async function updateUserRole(userId, newRole) {
         if (data.success) {
             alert(data.message);
             loadUsers(); // リロード
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        alert('通信エラーが発生しました');
+    }
+}
+
+// 提出ステータスを更新（承認/却下）
+async function updateSubmissionStatus(userId, shiftDate, periodStart, newStatus) {
+    try {
+        const response = await fetch(`api/admin.php?action=update_submission_status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                shift_date: shiftDate,
+                period_start: periodStart,
+                status: newStatus
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            alert(data.message);
+            loadAllSubmissions();
         } else {
             alert(data.message);
         }

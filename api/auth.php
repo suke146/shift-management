@@ -14,7 +14,7 @@ $action = $data['action'] ?? '';
 
 // ログイン処理
 if ($action === 'login') {
-    $email = $data['email'] ?? '';
+    $identifier = trim($data['email'] ?? ''); // email or nickname
     $password = $data['password'] ?? '';
     
     if (empty($email) || empty($password)) {
@@ -22,10 +22,24 @@ if ($action === 'login') {
         exit;
     }
     
+    // まずメールアドレスで検索
     $stmt = $pdo->prepare("SELECT id, name, email, password, role FROM users WHERE email = ?");
-    $stmt->execute([$email]);
+    $stmt->execute([$identifier]);
     $user = $stmt->fetch();
-    
+
+    // メールで見つからなければニックネームで検索
+    if (!$user) {
+        $stmt = $pdo->prepare("SELECT id, name, email, password, role FROM users WHERE nickname = ?");
+        $stmt->execute([$identifier]);
+        $users_by_nick = $stmt->fetchAll();
+        if (count($users_by_nick) === 1) {
+            $user = $users_by_nick[0];
+        } elseif (count($users_by_nick) > 1) {
+            echo json_encode(['success' => false, 'message' => '同じニックネームのアカウントが複数存在します。メールアドレスでログインしてください']);
+            exit;
+        }
+    }
+
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
@@ -45,6 +59,7 @@ if ($action === 'login') {
 // 新規登録処理
 if ($action === 'register') {
     $name = trim($data['name'] ?? '');
+    $nickname = trim($data['nickname'] ?? '');
     $email = trim($data['email'] ?? '');
     $password = $data['password'] ?? '';
     $password_confirm = $data['password_confirm'] ?? '';
@@ -74,10 +89,10 @@ if ($action === 'register') {
     
     // ユーザー登録
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'user')");
-    
+    $stmt = $pdo->prepare("INSERT INTO users (name, nickname, email, password, role) VALUES (?, ?, ?, ?, 'user')");
+
     try {
-        $stmt->execute([$name, $email, $hashed_password]);
+        $stmt->execute([$name, $nickname, $email, $hashed_password]);
         echo json_encode(['success' => true, 'message' => '登録が完了しました。ログインしてください']);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => '登録に失敗しました: ' . $e->getMessage()]);

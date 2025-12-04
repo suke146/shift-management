@@ -84,6 +84,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions') {
     exit;
 }
 
+// シフト提出のステータス更新（承認/却下）
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_submission_status') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    $target_user_id = $data['user_id'] ?? 0;
+    $shift_date = $data['shift_date'] ?? '';
+    $period_start = $data['period_start'] ?? '';
+    $new_status = $data['status'] ?? '';
+
+    if (!in_array($new_status, ['approved', 'rejected', 'pending'])) {
+        echo json_encode(['success' => false, 'message' => '無効なステータスです']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("UPDATE shift_submissions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND period_start = ? AND shift_date = ?");
+    $stmt->execute([$new_status, $target_user_id, $period_start, $shift_date]);
+
+    if ($stmt->rowCount() > 0) {
+        echo json_encode(['success' => true, 'message' => 'ステータスを更新しました']);
+    } else {
+        echo json_encode(['success' => false, 'message' => '該当の提出が見つかりませんでした']);
+    }
+    exit;
+}
+
 // 確定シフト作成
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create_final_shifts') {
     $data = json_decode(file_get_contents('php://input'), true);

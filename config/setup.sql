@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL,
+    nickname VARCHAR(100) NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role TEXT CHECK(role IN ('user', 'admin')) DEFAULT 'user',
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS shift_submissions (
     start_time TIME NULL,
     end_time TIME NULL,
     is_available BOOLEAN DEFAULT 1,
+    note TEXT NULL,
     status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

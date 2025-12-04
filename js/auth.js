@@ -18,7 +18,7 @@ function showTab(tabName) {
 async function handleLogin(event) {
     event.preventDefault();
     
-    const email = document.getElementById('login-email').value;
+    const email = document.getElementById('login-email').value; // email or nickname
     const password = document.getElementById('login-password').value;
     const messageDiv = document.getElementById('login-message');
     
@@ -55,6 +55,7 @@ async function handleRegister(event) {
     event.preventDefault();
     
     const name = document.getElementById('register-name').value;
+    const nickname = document.getElementById('register-nickname').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
     const passwordConfirm = document.getElementById('register-password-confirm').value;
@@ -74,6 +75,7 @@ async function handleRegister(event) {
             body: JSON.stringify({
                 action: 'register',
                 name: name,
+                nickname: nickname,
                 email: email,
                 password: password,
                 password_confirm: passwordConfirm

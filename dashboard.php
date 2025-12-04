@@ -77,6 +77,8 @@ $is_admin = ($user['role'] === 'admin');
                         <button onclick="changeWeek(1)" class="btn btn-secondary">次の半月</button>
                     </div>
                     <div id="shift-table-container" class="table-container"></div>
+                    <h3>提出状況（他のメンバー）</h3>
+                    <div id="submissions-public-container" class="table-container"></div>
                 </div>
             </div>
             

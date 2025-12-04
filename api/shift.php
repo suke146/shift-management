@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
         
         // 新しいシフトを登録
         $stmt = $pdo->prepare("
-            INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available) 
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO shift_submissions (user_id, period_start, shift_date, start_time, end_time, is_available, note) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
         
         foreach ($shifts as $shift) {
@@ -43,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
                 $shift['shift_date'],
                 $shift['start_time'] ?? null,
                 $shift['end_time'] ?? null,
-                $shift['is_available'] ? 1 : 0
+                $shift['is_available'] ? 1 : 0,
+                $shift['note'] ?? null
             ]);
         }
         
@@ -66,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_my_submissions') {
     }
     
     $stmt = $pdo->prepare("
-        SELECT shift_date, start_time, end_time, is_available, status 
+        SELECT shift_date, start_time, end_time, is_available, status, note 
         FROM shift_submissions 
         WHERE user_id = ? AND period_start = ?
         ORDER BY shift_date
@@ -75,6 +76,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_my_submissions') {
     $shifts = $stmt->fetchAll();
     
     echo json_encode(['success' => true, 'shifts' => $shifts]);
+    exit;
+}
+
+// 全ユーザーのシフト提出を公開で取得（半月ごと）
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_all_submissions_public') {
+    $period_start = $_GET['period_start'] ?? '';
+
+    if (empty($period_start)) {
+        echo json_encode(['success' => false, 'message' => '期間を指定してください']);
+        exit;
+    }
+
+    $stmt = $pdo->prepare("\n        SELECT ss.*, u.name as user_name, u.nickname as user_nickname\n        FROM shift_submissions ss\n        JOIN users u ON ss.user_id = u.id\n        WHERE ss.period_start = ?\n        ORDER BY u.name, ss.shift_date\n    ");
+    $stmt->execute([$period_start]);
+    $submissions = $stmt->fetchAll();
+
+    echo json_encode(['success' => true, 'submissions' => $submissions]);
     exit;
 }
 

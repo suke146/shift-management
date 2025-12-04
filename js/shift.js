@@ -1,6 +1,17 @@
 let currentPeriod = getPeriodStart(new Date());
 let currentManagePeriod = getPeriodStart(new Date());
 
+// HTML を安全に表示するためのエスケープ（簡易）
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // 半月期間の開始日を取得（1日または16日）
 function getPeriodStart(date) {
     const d = new Date(date);
@@ -55,29 +66,9 @@ function formatDate(date) {
 // 曜日名
 const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 
-// 15分刻みの時刻オプションを生成
-function generateTimeOptions() {
-    const options = [];
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 15) {
-            const hour = String(h).padStart(2, '0');
-            const min = String(m).padStart(2, '0');
-            options.push(`${hour}:${min}`);
-        }
-    }
-    return options;
-}
-
-// 時刻選択のセレクトボックスを生成
-function createTimeSelect(defaultValue = '09:00') {
-    const options = generateTimeOptions();
-    let html = '<select class="time-select">';
-    options.forEach(time => {
-        const selected = time === defaultValue ? 'selected' : '';
-        html += `<option value="${time}" ${selected}>${time}</option>`;
-    });
-    html += '</select>';
-    return html;
+// 時刻入力フィールドを生成（15分刻み）
+function createTimeInput(defaultValue = '09:00') {
+    return `<input type="time" class="time-input" value="${defaultValue}" step="900">`;
 }
 
 // シフト提出の初期化
@@ -119,15 +110,19 @@ function generateShiftDays(container, periodStart) {
             <div class="shift-day-times" id="times-${index}">
                 <div class="form-group">
                     <label>開始時刻</label>
-                    <div class="time-select-container" data-index="${index}" data-type="start">
-                        ${createTimeSelect('09:00')}
+                    <div class="time-input-container" data-index="${index}" data-type="start">
+                        ${createTimeInput('09:00')}
                     </div>
                 </div>
                 <div class="form-group">
                     <label>終了時刻</label>
-                    <div class="time-select-container" data-index="${index}" data-type="end">
-                        ${createTimeSelect('18:00')}
+                    <div class="time-input-container" data-index="${index}" data-type="end">
+                        ${createTimeInput('18:00')}
                     </div>
+                </div>
+                <div class="form-group">
+                    <label>メモ（任意）</label>
+                    <textarea class="day-note" data-index="${index}" placeholder="その日のメモや備考を入力"></textarea>
                 </div>
             </div>
         `;
@@ -159,14 +154,16 @@ async function submitShift(event) {
     const shifts = [];
     dates.forEach((date, index) => {
         const checkbox = document.querySelector(`.availability-check[data-index="${index}"]`);
-        const startSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="start"] select`);
-        const endSelect = document.querySelector(`.time-select-container[data-index="${index}"][data-type="end"] select`);
+        const startInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="start"] input`);
+        const endInput = document.querySelector(`.time-input-container[data-index="${index}"][data-type="end"] input`);
+        const noteEl = document.querySelector(`.day-note[data-index="${index}"]`);
         
         shifts.push({
             shift_date: formatDate(date),
             is_available: checkbox.checked,
-            start_time: checkbox.checked ? startSelect.value : null,
-            end_time: checkbox.checked ? endSelect.value : null
+            start_time: checkbox.checked ? startInput.value : null,
+            end_time: checkbox.checked ? endInput.value : null,
+            note: noteEl ? noteEl.value : null
         });
     });
     
@@ -198,6 +195,7 @@ async function submitShift(event) {
 function initShiftView() {
     updatePeriodDisplay();
     loadFinalShifts();
+    loadAllSubmissionsPublic();
 }
 
 // 半月期間の表示を更新
@@ -300,6 +298,83 @@ function displayShiftTable(container, shifts, periodStart) {
     });
     
     html += '</tr></tbody></table>';
+    container.innerHTML = html;
+}
+
+// 全ユーザーの提出状況を読み込み（公開）
+async function loadAllSubmissionsPublic() {
+    const container = document.getElementById('submissions-public-container');
+    const periodStart = formatDate(currentPeriod);
+
+    try {
+        const response = await fetch(`api/shift.php?action=get_all_submissions_public&period_start=${periodStart}`);
+        const data = await response.json();
+
+        if (data.success) {
+            displayPublicSubmissions(container, data.submissions, new Date(periodStart));
+        } else {
+            container.innerHTML = '<p>提出状況の読み込みに失敗しました</p>';
+        }
+    } catch (error) {
+        container.innerHTML = '<p>通信エラーが発生しました</p>';
+    }
+}
+
+function displayPublicSubmissions(container, submissions, periodStart) {
+    if (submissions.length === 0) {
+        container.innerHTML = '<p>この期間の提出はありません</p>';
+        return;
+    }
+
+    const dates = getPeriodDates(periodStart);
+
+    // ユーザーごとにグループ化
+    const submissionsByUser = {};
+    submissions.forEach(sub => {
+        if (!submissionsByUser[sub.user_name]) {
+            submissionsByUser[sub.user_name] = {
+                user_id: sub.user_id,
+                dates: {}
+            };
+        }
+        submissionsByUser[sub.user_name].dates[sub.shift_date] = sub;
+    });
+
+    let html = '<div class="table-container"><table><thead><tr>';
+    html += '<th>名前</th>';
+    dates.forEach(date => {
+        const dayOfWeek = date.getDay();
+        html += `<th>${dayNames[dayOfWeek]}<br>${formatDate(date).substring(5)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (const [userName, userData] of Object.entries(submissionsByUser)) {
+        html += `<tr><td><strong>${userName}</strong></td>`;
+
+        dates.forEach(date => {
+            const dateStr = formatDate(date);
+            const day = userData.dates[dateStr];
+            html += '<td>';
+
+            if (day && day.is_available) {
+                html += `<div class="shift-submission">
+                    ${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - 
+                    ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}
+                </div>`;
+                if (day.note) {
+                    html += `<div class="submission-note">${escapeHtml(day.note)}</div>`;
+                }
+            } else {
+                html += '<span style="color: #999;">×</span>';
+            }
+
+            html += '</td>';
+        });
+
+        html += '</tr>';
+    }
+
+    html += '</tbody></table></div>';
     container.innerHTML = html;
 }
 
