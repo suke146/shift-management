@@ -138,14 +138,12 @@ async function initShiftSubmit() {
                 const checkbox = document.querySelector(`.availability-check[data-index="${idx}"]`);
                 const startTime = document.querySelector(`.start-time[data-index="${idx}"]`);
                 const endTime = document.querySelector(`.end-time[data-index="${idx}"]`);
+                const noteInput = document.querySelector(`.shift-note[data-index="${idx}"]`);
                 if (checkbox) checkbox.checked = !!shift.is_available;
                 if (startTime) startTime.value = shift.start_time || '09:00';
                 if (endTime) endTime.value = shift.end_time || '18:00';
+                if (noteInput && shift.note) noteInput.value = shift.note;
             });
-            // 備考（note）がAPIで取得できる場合は反映（要API拡張）
-            if (data.note !== undefined && document.getElementById('shift-note')) {
-                document.getElementById('shift-note').value = data.note;
-            }
         }
     } catch (e) {
         // 取得失敗時は何もしない
@@ -177,6 +175,10 @@ function generateShiftDays(container, periodStart) {
                     <label>終了時刻</label>
                     <input type="time" class="end-time" data-index="${index}" value="18:00" step="900">
                 </div>
+                <div class="form-group">
+                    <label>備考</label>
+                    <input type="text" class="shift-note" data-index="${index}" placeholder="休み希望理由など">
+                </div>
             </div>
         `;
         container.appendChild(dayDiv);
@@ -197,19 +199,19 @@ async function submitShift(event) {
     // 半月期間の開始日
     const periodStart = formatDate(currentSubmitPeriod);
     const dates = getPeriodDates(currentSubmitPeriod);
-    // 備考
-    const note = document.getElementById('shift-note')?.value || '';
     // シフトデータを収集
     const shifts = [];
     dates.forEach((date, index) => {
         const checkbox = document.querySelector(`.availability-check[data-index="${index}"]`);
         const startTime = document.querySelector(`.start-time[data-index="${index}"]`);
         const endTime = document.querySelector(`.end-time[data-index="${index}"]`);
+        const noteInput = document.querySelector(`.shift-note[data-index="${index}"]`);
         shifts.push({
             shift_date: formatDate(date),
             is_available: checkbox.checked,
             start_time: checkbox.checked ? startTime.value : null,
-            end_time: checkbox.checked ? endTime.value : null
+            end_time: checkbox.checked ? endTime.value : null,
+            note: noteInput ? noteInput.value : ''
         });
     });
     try {
@@ -220,8 +222,7 @@ async function submitShift(event) {
             },
             body: JSON.stringify({
                 period_start: periodStart,
-                shifts: shifts,
-                note: note
+                shifts: shifts
             })
         });
         const data = await response.json();

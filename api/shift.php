@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'submit') {
                     $shift['start_time'] ?? null,
                     $shift['end_time'] ?? null,
                     $shift['is_available'] ? 1 : 0,
-                    $note
+                    $shift['note'] ?? ''
                 ]);
             }
         } else {
@@ -117,11 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_my_submissions') {
         ");
         $stmt->execute([$user_id, $period_start]);
         $shifts = $stmt->fetchAll();
-        // 備考は1件目から取得（全日同じnoteで保存されている前提）
-        $note = count($shifts) > 0 ? $shifts[0]['note'] : '';
-        // noteを各shiftから除外
-        foreach ($shifts as &$s) { unset($s['note']); }
-        echo json_encode(['success' => true, 'shifts' => $shifts, 'note' => $note]);
+        echo json_encode(['success' => true, 'shifts' => $shifts]);
     } else {
         $stmt = $pdo->prepare("
             SELECT shift_date, start_time, end_time, is_available, status 

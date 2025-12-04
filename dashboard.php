@@ -66,10 +66,6 @@ $is_admin = ($user['role'] === 'admin');
                             <label>勤務可能日時（15分刻み）</label>
                             <div id="shift-days-container"></div>
                         </div>
-                        <div class="form-group">
-                            <label>備考・休み理由など</label>
-                            <textarea id="shift-note" name="note" rows="2" placeholder="例：○日は通院のため休み希望"></textarea>
-                        </div>
                         <button type="submit" class="btn btn-primary">シフトを提出</button>
                     </form>
                     <div id="submit-message" class="message"></div>
