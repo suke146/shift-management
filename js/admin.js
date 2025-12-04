@@ -13,6 +13,7 @@ function escapeHtml(str) {
 }
 
 function initShiftManage() {
+    console.log('initShiftManage called');
     updateManagePeriodDisplay();
     loadSubmissionsForReference();
     loadAllUsersForShiftBuilder();
@@ -145,12 +146,17 @@ function displaySubmissionsReference(container, submissions, periodStart) {
 // シフトビルダー用の全ユーザーを読み込み
 let allUsers = [];
 async function loadAllUsersForShiftBuilder() {
+    console.log('loadAllUsersForShiftBuilder called');
     try {
         const response = await fetch('api/admin.php?action=get_users');
         const data = await response.json();
+        console.log('All users for shift builder:', data);
         
         if (data.success) {
             allUsers = data.users;
+            console.log('Loaded ' + allUsers.length + ' users');
+        } else {
+            console.error('Failed to load users:', data.message);
         }
     } catch (error) {
         console.error('ユーザー読み込みエラー:', error);
@@ -322,18 +328,27 @@ async function saveFinalShifts() {
 // ユーザー一覧を読み込み
 async function loadUsers() {
     const container = document.getElementById('users-list-container');
+    console.log('loadUsers called');
+    
+    if (!container) {
+        console.error('users-list-container not found!');
+        return;
+    }
     
     try {
         const response = await fetch('api/admin.php?action=get_users');
+        console.log('Users API response:', response.status);
         const data = await response.json();
+        console.log('Users data:', data);
         
         if (data.success) {
             displayUsers(container, data.users);
         } else {
-            container.innerHTML = '<p>ユーザーの読み込みに失敗しました</p>';
+            container.innerHTML = `<p>ユーザーの読み込みに失敗しました: ${data.message || ''}</p>`;
         }
     } catch (error) {
-        container.innerHTML = '<p>通信エラーが発生しました</p>';
+        console.error('Error loading users:', error);
+        container.innerHTML = `<p>通信エラーが発生しました: ${error.message}</p>`;
     }
 }
 

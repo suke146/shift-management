@@ -65,12 +65,25 @@ function switchManageTab(tabName) {
 
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
-    // どのページがactiveか判定
+    console.log('Dashboard initialized');
+    
+    // 最初のページ（シフト提出）を初期化
     const activePage = document.querySelector('.page.active');
-    if (activePage && activePage.id === 'shift-all-page') {
-        if (typeof updateAllPeriodDisplay === 'function') updateAllPeriodDisplay();
-        if (typeof loadAllShiftSubmissions === 'function') loadAllShiftSubmissions();
+    if (activePage) {
+        const pageId = activePage.id;
+        console.log('Active page:', pageId);
+        
+        if (pageId === 'shift-submit-page') {
+            initShiftSubmit();
+        } else if (pageId === 'shift-view-page') {
+            initShiftView();
+        } else if (pageId === 'shift-manage-page' && typeof initShiftManage === 'function') {
+            initShiftManage();
+        } else if (pageId === 'user-manage-page' && typeof loadUsers === 'function') {
+            loadUsers();
+        }
     } else {
+        // デフォルト
         initShiftSubmit();
     }
 });
