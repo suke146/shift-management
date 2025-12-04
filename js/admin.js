@@ -14,7 +14,9 @@ function escapeHtml(str) {
 
 function initShiftManage() {
     updateManagePeriodDisplay();
-    loadAllSubmissions();
+    loadSubmissionsForReference();
+    loadAllUsersForShiftBuilder();
+    initShiftBuilder();
 }
 
 // 管理期間の表示を更新
@@ -48,12 +50,14 @@ function changeManageWeek(offset) {
     }
     
     updateManagePeriodDisplay();
-    loadAllSubmissions();
+    loadSubmissionsForReference();
+    loadAllUsersForShiftBuilder();
+    initShiftBuilder();
 }
 
-// 全ユーザーのシフト提出を読み込み
-async function loadAllSubmissions() {
-    const container = document.getElementById('manage-shifts-container');
+// 提出状況を参考情報として読み込み
+async function loadSubmissionsForReference() {
+    const container = document.getElementById('manage-submissions-container');
     const periodStart = formatDate(currentManagePeriod);
     
     try {
@@ -61,7 +65,7 @@ async function loadAllSubmissions() {
         const data = await response.json();
         
         if (data.success) {
-            displaySubmissions(container, data.submissions, new Date(periodStart));
+            displaySubmissionsReference(container, data.submissions, new Date(periodStart));
         } else {
             container.innerHTML = '<p>シフト提出の読み込みに失敗しました</p>';
         }
@@ -70,8 +74,8 @@ async function loadAllSubmissions() {
     }
 }
 
-// シフト提出を表示
-function displaySubmissions(container, submissions, periodStart) {
+// 提出状況を参考表示
+function displaySubmissionsReference(container, submissions, periodStart) {
     if (submissions.length === 0) {
         container.innerHTML = '<p>この期間のシフト提出はまだありません</p>';
         return;
@@ -112,26 +116,20 @@ function displaySubmissions(container, submissions, periodStart) {
             html += '<td>';
             
             if (day && day.is_available) {
-                html += `<div class="shift-submission">
+                html += `<div class="shift-submission" style="background: #f0f8ff; padding: 5px; border-radius: 3px;">
                     ${day.start_time ? day.start_time.substring(0, 5) : '--:--'} - 
                     ${day.end_time ? day.end_time.substring(0, 5) : '--:--'}
-                    <br>
-                    <label style="cursor: pointer; display: block; margin-top: 5px;">
-                        <input type="checkbox" class="assign-shift" 
-                            data-user-id="${userData.user_id}"
-                            data-user-name="${escapeHtml(userName)}"
-                            data-date="${dateStr}"
-                            data-start="${day.start_time}"
-                            data-end="${day.end_time}"
-                            style="margin-right: 5px;">
-                        <span style="font-size: 12px;">シフト採用</span>
-                    </label>
                 </div>`;
                 if (day && day.note) {
                     html += `<div class="submission-note" style="font-size: 11px; color: #666; margin-top: 3px;">${escapeHtml(day.note)}</div>`;
                 }
+            } else if (day) {
+                html += '<span style="color: #999;">休み希望</span>';
+                if (day.note) {
+                    html += `<div style="font-size: 11px; color: #666;">${escapeHtml(day.note)}</div>`;
+                }
             } else {
-                html += '<span style="color: #999;">×</span>';
+                html += '<span style="color: #ccc;">-</span>';
             }
             
             html += '</td>';
@@ -144,34 +142,155 @@ function displaySubmissions(container, submissions, periodStart) {
     container.innerHTML = html;
 }
 
-// 確定シフトを作成
-async function createFinalShift() {
-    const checkboxes = document.querySelectorAll('.assign-shift:checked');
+// シフトビルダー用の全ユーザーを読み込み
+let allUsers = [];
+async function loadAllUsersForShiftBuilder() {
+    try {
+        const response = await fetch('api/admin.php?action=get_users');
+        const data = await response.json();
+        
+        if (data.success) {
+            allUsers = data.users;
+        }
+    } catch (error) {
+        console.error('ユーザー読み込みエラー:', error);
+    }
+}
+
+// シフトビルダーの初期化
+let shiftBuilderRows = [];
+function initShiftBuilder() {
+    shiftBuilderRows = [];
+    renderShiftBuilder();
+}
+
+// シフトビルダーを描画
+function renderShiftBuilder() {
+    const container = document.getElementById('shift-builder-container');
+    const dates = getPeriodDates(currentManagePeriod);
     
-    if (checkboxes.length === 0) {
-        alert('シフトを選択してください');
+    let html = '<div class="shift-builder">';
+    
+    if (shiftBuilderRows.length === 0) {
+        html += '<p class="no-shifts">シフトを追加してください</p>';
+    } else {
+        shiftBuilderRows.forEach((row, index) => {
+            html += `<div class="shift-builder-row">
+                <div class="form-group">
+                    <label>日付</label>
+                    <select class="shift-date" data-index="${index}">
+                        ${dates.map(d => {
+                            const dateStr = formatDate(d);
+                            const dayOfWeek = d.getDay();
+                            const selected = row.date === dateStr ? 'selected' : '';
+                            return `<option value="${dateStr}" ${selected}>${dateStr} (${dayNames[dayOfWeek]})</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>メンバー</label>
+                    <select class="shift-user" data-index="${index}">
+                        <option value="">選択してください</option>
+                        ${allUsers.map(u => {
+                            const selected = row.userId == u.id ? 'selected' : '';
+                            return `<option value="${u.id}" ${selected}>${u.name}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>開始時刻</label>
+                    <input type="time" class="shift-start" data-index="${index}" value="${row.startTime || '09:00'}" step="900">
+                </div>
+                <div class="form-group">
+                    <label>終了時刻</label>
+                    <input type="time" class="shift-end" data-index="${index}" value="${row.endTime || '18:00'}" step="900">
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeShiftBuilderRow(${index})">削除</button>
+            </div>`;
+        });
+    }
+    
+    html += '<button type="button" class="btn btn-secondary" onclick="addShiftBuilderRow()">+ シフトを追加</button>';
+    html += '</div>';
+    
+    container.innerHTML = html;
+    
+    // イベントリスナーを設定
+    setupShiftBuilderListeners();
+}
+
+// シフトビルダーのイベントリスナー
+function setupShiftBuilderListeners() {
+    document.querySelectorAll('.shift-date, .shift-user, .shift-start, .shift-end').forEach(el => {
+        el.addEventListener('change', updateShiftBuilderData);
+    });
+}
+
+// シフトビルダーのデータを更新
+function updateShiftBuilderData() {
+    shiftBuilderRows.forEach((row, index) => {
+        const dateEl = document.querySelector(`.shift-date[data-index="${index}"]`);
+        const userEl = document.querySelector(`.shift-user[data-index="${index}"]`);
+        const startEl = document.querySelector(`.shift-start[data-index="${index}"]`);
+        const endEl = document.querySelector(`.shift-end[data-index="${index}"]`);
+        
+        if (dateEl) row.date = dateEl.value;
+        if (userEl) row.userId = userEl.value;
+        if (startEl) row.startTime = startEl.value;
+        if (endEl) row.endTime = endEl.value;
+    });
+}
+
+// シフトビルダーに行を追加
+function addShiftBuilderRow() {
+    const dates = getPeriodDates(currentManagePeriod);
+    shiftBuilderRows.push({
+        date: formatDate(dates[0]),
+        userId: '',
+        startTime: '09:00',
+        endTime: '18:00'
+    });
+    renderShiftBuilder();
+}
+
+// シフトビルダーから行を削除
+function removeShiftBuilderRow(index) {
+    shiftBuilderRows.splice(index, 1);
+    renderShiftBuilder();
+}
+
+// 確定シフトを保存
+async function saveFinalShifts() {
+    updateShiftBuilderData();
+    
+    // バリデーション
+    const validShifts = shiftBuilderRows.filter(row => row.userId && row.date);
+    
+    if (validShifts.length === 0) {
+        alert('少なくとも1つのシフトを作成してください（メンバーと日付を選択）');
         return;
     }
     
-    // 選択されたシフトの概要を表示
-    const shiftCount = checkboxes.length;
-    const userNames = [...new Set(Array.from(checkboxes).map(cb => cb.dataset.userName))];
+    // 確認メッセージ
+    const shiftCount = validShifts.length;
+    const userIds = [...new Set(validShifts.map(s => s.userId))];
+    const userNames = userIds.map(id => {
+        const user = allUsers.find(u => u.id == id);
+        return user ? user.name : '';
+    }).filter(n => n);
+    
     const summary = `${shiftCount}件のシフトを確定します。\n対象メンバー: ${userNames.join(', ')}`;
     
     if (!confirm(summary + '\n\nよろしいですか？')) {
         return;
     }
     
-    const shifts = [];
-    
-    checkboxes.forEach(checkbox => {
-        shifts.push({
-            user_id: parseInt(checkbox.dataset.userId),
-            shift_date: checkbox.dataset.date,
-            start_time: checkbox.dataset.start,
-            end_time: checkbox.dataset.end
-        });
-    });
+    const shifts = validShifts.map(row => ({
+        user_id: parseInt(row.userId),
+        shift_date: row.date,
+        start_time: row.startTime,
+        end_time: row.endTime
+    }));
     
     const messageDiv = document.getElementById('manage-message');
     
@@ -188,9 +307,9 @@ async function createFinalShift() {
         
         if (data.success) {
             showMessage(messageDiv, data.message, 'success');
-            // チェックボックスをクリア
-            checkboxes.forEach(cb => cb.checked = false);
-            loadAllSubmissions(); // リロード
+            // シフトビルダーをクリア
+            shiftBuilderRows = [];
+            renderShiftBuilder();
         } else {
             showMessage(messageDiv, data.message, 'error');
         }

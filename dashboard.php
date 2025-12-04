@@ -92,8 +92,15 @@ $is_admin = ($user['role'] === 'admin');
                         <span id="manage-week-display"></span>
                         <button onclick="changeManageWeek(1)" class="btn btn-secondary">次の半月</button>
                     </div>
-                    <div id="manage-shifts-container"></div>
-                    <button onclick="createFinalShift()" class="btn btn-success">確定シフトを作成</button>
+                    
+                    <h3>提出状況（参考）</h3>
+                    <div id="manage-submissions-container"></div>
+                    
+                    <h3>シフト作成</h3>
+                    <p class="help-text">日付を選択してメンバーを追加し、時刻を入力してください</p>
+                    <div id="shift-builder-container"></div>
+                    
+                    <button onclick="saveFinalShifts()" class="btn btn-success">確定シフトを保存</button>
                     <div id="manage-message" class="message"></div>
                 </div>
             </div>
